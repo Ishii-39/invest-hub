@@ -84,7 +84,7 @@ label{display:block;color:var(--td);font-size:10px;margin-bottom:4px;text-transf
       <button class="bp" onclick="openCM()">+ 企業</button>
       <button class="bo" onclick="openRM()">+ 関係</button>
       <button class="bg" onclick="openSM()">⚙設定</button>
-      <button class="bg" onclick="expD()">↓書出</button>
+      <button class="bg" onclick="undo()">↩戻す</button><button class="bg" onclick="expD()">↓書出</button>
       <button class="bg" onclick="document.getElementById('imp').click()">↑読込</button>
       <input type="file" id="imp" accept=".json" style="display:none" onchange="impD(event)">
     </div>
@@ -110,7 +110,7 @@ const LCOL=['#00e5c8','#3b9eff','#ffb020','#ff4d6a','#a78bfa','#f472b6','#fb923c
 const DROLES=[{id:'revenue',name:'売上高'},{id:'op_profit',name:'営業利益'},{id:'gross_profit',name:'売上総利益'},{id:'net_profit',name:'純利益'},{id:'ebitda',name:'EBITDA'},{id:'market_cap',name:'時価総額'},{id:'stock_price',name:'株価'},{id:'eps',name:'EPS'},{id:'per',name:'PER'}];
 const AUTOROLE={'売上高':'revenue','営業利益':'op_profit','売上総利益':'gross_profit','純利益':'net_profit','EBITDA':'ebitda','時価総額':'market_cap','株価':'stock_price','EPS':'eps','PER':'per'};
 let D={c:[],r:[],rt:[],lb:[],roles:[]};
-let sel=null,eid=null,cv='graph',sim,zO,dTab='ov',_fl=[],cmpRole='revenue',cmpMode='abs',db=null;
+let sel=null,eid=null,cv='graph',sim,zO,dTab='ov',_fl=[],cmpRole='revenue',cmpMode='abs',db=null; let hist=[];const MAX_HIST=10; function pushHist(){hist.push(JSON.stringify({c:D.c,r:D.r,rt:D.rt,lb:D.lb,roles:D.roles}));if(hist.length>MAX_HIST)hist.shift()} function undo(){if(!hist.length)return alert('履歴がありません');const p=JSON.parse(hist.pop());D.c=p.c;D.r=p.r;D.rt=p.rt;D.lb=p.lb;D.roles=p.roles;saveDB();document.getElementById('cc').textContent=D.c.length+'社';if(cv==='graph')rGr();else if(cv==='list')rL();else rCmp();if(sel){if(!D.c.find(x=>x.id===sel)){sel=null;document.getElementById('det').style.display='none'}else rDet(sel)}}
 
 // ═══ UTILITIES ═══
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
@@ -135,7 +135,7 @@ function saveDB(){
   if(!db)return Promise.resolve();
   return new Promise((res,rej)=>{const tx=db.transaction('data','readwrite');tx.objectStore('data').put({c:D.c,r:D.r,rt:D.rt,lb:D.lb,roles:D.roles},'main');tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
 
-function save(){saveDB();document.getElementById('cc').textContent=D.c.length+'社'}
+function save(){pushHist();saveDB();document.getElementById('cc').textContent=D.c.length+'社'}
 function ref(){save();if(cv==='graph')rGr();else if(cv==='list')rL();else rCmp();if(sel)rDet(sel)}
 
 // ═══ DATA I/O (Spec §5) ═══
@@ -215,7 +215,7 @@ function rGr(){
   sim=d3.forceSimulation(nodes).force('link',d3.forceLink(links).id(d=>d.id).distance(160)).force('charge',d3.forceManyBody().strength(-500)).force('center',d3.forceCenter(W/2,H/2)).force('collision',d3.forceCollide(d=>d.r+10));
   const link=g.selectAll('.lk').data(links).join('line').attr('stroke',d=>gRT(d.type).color).attr('stroke-width',d=>TH[d.th]||1.5).attr('stroke-opacity',.5);
   links.forEach((l,i)=>{const tR=nodes.find(n=>n.id===l.target)?.r||24;const sR=nodes.find(n=>n.id===l.source)?.r||24;const rt=gRT(l.type);const fid='af'+i;defs.append('marker').attr('id',fid).attr('viewBox','0 0 12 8').attr('refX',tR+12).attr('refY',4).attr('markerWidth',9).attr('markerHeight',7).attr('orient','auto').append('path').attr('d','M0,0 L12,4 L0,8Z').attr('fill',rt.color);l._fid=fid;if(rt.bi){const rid='ar'+i;defs.append('marker').attr('id',rid).attr('viewBox','0 0 12 8').attr('refX',-(sR)).attr('refY',4).attr('markerWidth',9).attr('markerHeight',7).attr('orient','auto').append('path').attr('d','M12,0 L0,4 L12,8Z').attr('fill',rt.color);l._rid=rid}});
-  link.attr('marker-end',d=>'url(#'+d._fid+')').each(function(d){if(d._rid)d3.select(this).attr('marker-start','url(#'+d._rid+')')});
+  link.attr('marker-end',d=>'url(#'+d._fid+')');
   const ll=g.selectAll('.ll').data(links).join('text').text(d=>gRT(d.type).name).attr('fill',d=>gRT(d.type).color).attr('font-size',9).attr('font-family','var(--f)').attr('text-anchor','middle').attr('dy',d=>-(TH[d.th]/2+6)).attr('opacity',.7);
   const node=g.selectAll('.nd').data(nodes).join('g').attr('cursor','pointer').call(d3.drag().on('start',(e,d)=>{if(!e.active)sim.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y}).on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y}).on('end',(e,d)=>{if(!e.active)sim.alphaTarget(0);d.fx=null;d.fy=null})).on('click',(e,d)=>selC(d.id));
   node.append('circle').attr('r',d=>d.r).attr('fill',d=>d.id===sel?'rgba(0,229,200,.12)':'var(--s1)').attr('stroke',d=>d.id===sel?'var(--ac)':'var(--bd)').attr('stroke-width',d=>d.id===sel?2.5:1.2);
