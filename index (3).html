@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Invest Hub v4</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#060a10;--s1:#0d1420;--s2:#131d2e;--s3:#1a2538;--bd:#1a2740;--bh:#264060;--ac:#00e5c8;--ad:rgba(0,229,200,.12);--ag:rgba(0,229,200,.25);--red:#ff4d6a;--amb:#ffb020;--grn:#00e5c8;--blu:#3b9eff;--pur:#a78bfa;--pnk:#f472b6;--txt:#d8e3ef;--td:#5a7490;--tm:#3a5068;--f:'IBM Plex Mono','Noto Sans JP',monospace;--r:6px}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:var(--f);background:var(--bg);color:var(--txt);font-size:12px;overflow:hidden;height:100vh}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}
+input,select,textarea{font-family:var(--f);font-size:12px;background:var(--bg);border:1px solid var(--bd);color:var(--txt);padding:7px 10px;border-radius:var(--r);outline:none;width:100%;transition:border-color .2s}
+input:focus,select:focus,textarea:focus{border-color:var(--ac)}textarea{resize:vertical;min-height:50px}select{cursor:pointer}
+button{font-family:var(--f);font-size:11px;cursor:pointer;border:none;border-radius:var(--r);padding:6px 14px;transition:all .15s}
+.bp{background:var(--ac);color:var(--bg);font-weight:700}.bp:hover{box-shadow:0 0 12px var(--ag)}
+.bo{background:transparent;color:var(--ac);border:1px solid var(--bd)}.bo:hover{border-color:var(--ac)}
+.bg{background:transparent;color:var(--td);border:none;padding:4px 8px}.bg:hover{color:var(--txt)}
+.bd{background:transparent;color:var(--red);border:1px solid var(--bd)}.bd:hover{border-color:var(--red)}
+label{display:block;color:var(--td);font-size:10px;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}
+.fld{margin-bottom:10px}
+.tag{display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;margin:2px;cursor:default}
+.tag-rm{cursor:pointer;margin-left:4px;opacity:.6}.tag-rm:hover{opacity:1}
+#app{display:flex;flex-direction:column;height:100vh}
+#hdr{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--bd);flex-shrink:0;flex-wrap:wrap}
+.nav{display:flex;gap:2px;margin-left:auto}.nav button{padding:5px 12px;font-size:11px;border-radius:4px}.nav button.on{background:var(--ad);color:var(--ac)}
+#main{display:flex;flex:1;overflow:hidden}
+#gc{flex:1;position:relative;overflow:hidden}#gc svg{width:100%;height:100%}
+#ge{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:var(--td)}
+#lc{flex:1;overflow-y:auto;padding:16px;display:none}
+#lg{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+.cd{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);padding:14px;cursor:pointer;transition:all .15s}
+.cd:hover{border-color:var(--bh);background:var(--s2)}.cd.sel{border-color:var(--ac)}
+#cpc{flex:1;overflow:auto;padding:16px;display:none}
+.cmp-tbl{border-collapse:collapse;font-size:11px;width:100%}
+.cmp-tbl th,.cmp-tbl td{border:1px solid var(--bd);padding:5px 8px;text-align:right;white-space:nowrap}
+.cmp-tbl th{background:var(--s2);color:var(--td);font-weight:600;font-size:10px;position:sticky;top:0;z-index:1}
+.cmp-tbl td:first-child,.cmp-tbl th:first-child{text-align:left;position:sticky;left:0;background:var(--s1);z-index:1;min-width:100px}
+.cmp-tbl th:first-child{background:var(--s2);z-index:2}
+.cmp-tbl .pos{color:var(--grn)}.cmp-tbl .neg{color:var(--red)}
+#det{width:440px;border-left:1px solid var(--bd);overflow-y:auto;flex-shrink:0;display:none;background:var(--s1)}
+#det-in{padding:16px}
+.sec{margin-bottom:16px}.sec-t{font-size:10px;color:var(--td);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-weight:600;border-bottom:1px solid var(--bd);padding-bottom:4px}
+.tabs{display:flex;gap:2px;margin-bottom:14px;border-bottom:1px solid var(--bd);padding-bottom:2px}
+.tabs button{padding:5px 12px;font-size:11px;border-radius:4px 4px 0 0;border:none;background:transparent;color:var(--td);cursor:pointer}
+.tabs button.on{background:var(--ad);color:var(--ac)}
+.ri{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:11px;border-bottom:1px solid var(--bd)}.ri:last-child{border:none}
+.rt{font-size:9px;min-width:48px;text-align:center;padding:2px 6px;border-radius:3px;font-weight:600}
+.rn{cursor:pointer}.rn:hover{color:var(--ac)}
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;z-index:100}
+.ml{background:var(--s1);border:1px solid var(--bd);border-radius:8px;padding:20px;width:500px;max-height:85vh;overflow-y:auto}
+.ml-t{font-size:14px;font-weight:700;margin-bottom:16px}
+.rw{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sl{font-size:10px;color:var(--ac);text-transform:uppercase;letter-spacing:1px;margin:14px 0 8px;font-weight:600}
+#gl{position:absolute;bottom:12px;left:12px;display:flex;gap:10px;flex-wrap:wrap;font-size:10px;color:var(--td);background:rgba(6,10,16,.85);padding:8px 12px;border-radius:4px;border:1px solid var(--bd)}
+.li{display:flex;align-items:center;gap:4px}.ld{width:8px;height:8px;border-radius:50%}
+#gctrl{position:absolute;top:12px;right:12px;display:flex;gap:6px;align-items:center;background:rgba(6,10,16,.85);padding:6px 10px;border-radius:4px;border:1px solid var(--bd)}
+.fin-wrap{overflow:auto;margin-bottom:10px;max-height:50vh}
+.fin-tbl{border-collapse:collapse;font-size:11px}
+.fin-tbl th,.fin-tbl td{border:1px solid var(--bd);padding:4px 6px;white-space:nowrap;min-width:80px}
+.fin-tbl th{background:var(--s2);color:var(--td);font-weight:600;font-size:10px;position:sticky;top:0;z-index:1}
+.fin-tbl td:first-child{text-align:left;position:sticky;left:0;background:var(--s1);z-index:1;min-width:110px}
+.fin-tbl td:nth-child(2){position:sticky;left:110px;background:var(--s1);z-index:1;min-width:70px}
+.fin-tbl th:first-child{position:sticky;left:0;z-index:2;background:var(--s2)}
+.fin-tbl th:nth-child(2){position:sticky;left:110px;z-index:2;background:var(--s2)}
+.fin-tbl input{border:none;background:transparent;color:var(--txt);text-align:right;padding:2px;width:70px;font-family:var(--f);font-size:11px;outline:none}
+.fin-tbl input:focus{background:var(--s3)}
+.fin-tbl .iname{text-align:left;width:100px}
+.fin-tbl .rsel{width:60px;padding:2px;font-size:9px;background:var(--bg);border:1px solid var(--bd);color:var(--td);border-radius:3px}
+.sp{color:var(--amb);font-weight:600;font-size:12px}
+@media(max-width:768px){#det{width:100%;position:fixed;inset:0;z-index:50}.ml{width:95vw}#lg{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hdr">
+    <div style="display:flex;align-items:center;gap:8px"><span style="color:var(--ac);font-size:16px">◆</span><span style="font-weight:700;font-size:14px;letter-spacing:2px">INVEST HUB</span><span style="color:var(--td);font-size:10px" id="cc">0社</span></div>
+    <div class="nav">
+      <button class="bg on" onclick="sw('graph')">グラフ</button>
+      <button class="bg" onclick="sw('list')">リスト</button>
+      <button class="bg" onclick="sw('compare')">比較</button>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="bp" onclick="openCM()">+ 企業</button>
+      <button class="bo" onclick="openRM()">+ 関係</button>
+      <button class="bg" onclick="openSM()">⚙設定</button>
+      <button class="bg" onclick="expD()">↓書出</button>
+      <button class="bg" onclick="document.getElementById('imp').click()">↑読込</button>
+      <input type="file" id="imp" accept=".json" style="display:none" onchange="impD(event)">
+    </div>
+  </div>
+  <div id="main">
+    <div id="gc"><svg id="gs"></svg><div id="ge"><div style="font-size:40px;color:var(--ac);opacity:.4">◆</div><div>「+ 企業」から始めましょう</div></div><div id="gl"></div>
+      <div id="gctrl"><span style="font-size:10px;color:var(--td)">ノードサイズ:</span><select id="nmsel" onchange="rGr()" style="width:auto;padding:3px 6px;font-size:10px"></select><button class="bg" onclick="zG(1.3)">＋</button><button class="bg" onclick="zG(.7)">ー</button><button class="bg" onclick="rG0()">⟲</button></div>
+    </div>
+    <div id="lc"><input id="ls" placeholder="検索..." oninput="rL()" style="max-width:300px;margin-bottom:16px"><div id="lg"></div></div>
+    <div id="cpc"></div>
+    <div id="det"><div id="det-in"></div></div>
+  </div>
+</div>
+<div id="cm" class="mo" style="display:none" onclick="if(event.target===this)this.style.display='none'"><div class="ml" id="cmb"></div></div>
+<div id="rm" class="mo" style="display:none" onclick="if(event.target===this)this.style.display='none'"><div class="ml" id="rmb"></div></div>
+<div id="sm" class="mo" style="display:none" onclick="if(event.target===this)this.style.display='none'"><div class="ml" id="smb"></div></div>
+
+<script>
+// ═══ CONSTANTS (Spec §2) ═══
+const DRT=[{id:'supply',name:'仕入先',color:'#ffb020',bi:1},{id:'customer',name:'顧客',color:'#3b9eff',bi:1},{id:'compete',name:'競合',color:'#ff4d6a',bi:0},{id:'partner',name:'提携',color:'#00e5c8',bi:0},{id:'parent',name:'親子',color:'#a78bfa',bi:0},{id:'invest',name:'投資先',color:'#f472b6',bi:0}];
+const TH=[1,1.5,2,3,4,6,8,10];
+const LCOL=['#00e5c8','#3b9eff','#ffb020','#ff4d6a','#a78bfa','#f472b6','#fb923c','#34d399','#e879f9','#fbbf24'];
+const DROLES=[{id:'revenue',name:'売上高'},{id:'op_profit',name:'営業利益'},{id:'gross_profit',name:'売上総利益'},{id:'net_profit',name:'純利益'},{id:'ebitda',name:'EBITDA'},{id:'market_cap',name:'時価総額'},{id:'stock_price',name:'株価'},{id:'eps',name:'EPS'},{id:'per',name:'PER'}];
+const AUTOROLE={'売上高':'revenue','営業利益':'op_profit','売上総利益':'gross_profit','純利益':'net_profit','EBITDA':'ebitda','時価総額':'market_cap','株価':'stock_price','EPS':'eps','PER':'per'};
+let D={c:[],r:[],rt:[],lb:[],roles:[]};
+let sel=null,eid=null,cv='graph',sim,zO,dTab='ov',_fl=[],cmpRole='revenue',cmpMode='abs',db=null;
+
+// ═══ UTILITIES ═══
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+function esc(s){if(!s)return'';const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function gRT(id){return D.rt.find(t=>t.id===id)||{name:id,color:'#888',bi:0}}
+function lCol(l){const i=D.lb.indexOf(l);return LCOL[((i%LCOL.length)+LCOL.length)%LCOL.length]}
+function pNum(s){if(!s)return null;const n=parseFloat(String(s).replace(/[,、 ]/g,''));return isNaN(n)?null:n}
+function getMetricVal(c,rid){if(!c.fin||!rid)return null;const it=c.fin.it.find(i=>i.role===rid);if(!it)return null;for(let i=c.fin.p.length-1;i>=0;i--){const v=pNum(it.v[c.fin.p[i]]);if(v!==null)return v}return null}
+// §2.2.4 merged roles list
+function allRoles(){return[{id:'',name:'なし'},...DROLES,...(D.roles||[])]}
+
+// ═══ IndexedDB STORAGE (Spec §2.5) ═══
+function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open('InvestHubDB',1);r.onupgradeneeded=e=>e.target.result.createObjectStore('data');r.onsuccess=e=>{db=e.target.result;res(db)};r.onerror=e=>rej(e.target.error)})}
+
+async function loadDB(){
+  await openDB();
+  // Migration from localStorage §7 checklist
+  try{const old=localStorage.getItem('ih3');if(old){const d=JSON.parse(old);D.c=d.c||[];D.r=d.r||[];D.rt=d.rt||[];D.lb=d.lb||[];D.roles=d.roles||[];await saveDB();localStorage.removeItem('ih3');return}}catch(e){}
+  return new Promise((res,rej)=>{const tx=db.transaction('data','readonly');const r=tx.objectStore('data').get('main');r.onsuccess=()=>{if(r.result){const d=r.result;D.c=d.c||[];D.r=d.r||[];D.rt=d.rt||[];D.lb=d.lb||[];D.roles=d.roles||[]}res()};r.onerror=()=>res()})}
+
+function saveDB(){
+  if(!db)return Promise.resolve();
+  return new Promise((res,rej)=>{const tx=db.transaction('data','readwrite');tx.objectStore('data').put({c:D.c,r:D.r,rt:D.rt,lb:D.lb,roles:D.roles},'main');tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
+
+function save(){saveDB();document.getElementById('cc').textContent=D.c.length+'社'}
+function ref(){save();if(cv==='graph')rGr();else if(cv==='list')rL();else rCmp();if(sel)rDet(sel)}
+
+// ═══ DATA I/O (Spec §5) ═══
+function expD(){const b=new Blob([JSON.stringify({companies:D.c,relations:D.r,relTypes:D.rt,labels:D.lb,roles:D.roles},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='invest-hub-'+new Date().toISOString().slice(0,10)+'.json';a.click()}
+function impD(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);D.c=d.companies||d.c||[];D.r=d.relations||d.r||[];if(d.relTypes||d.rt)D.rt=d.relTypes||d.rt;if(d.labels||d.lb)D.lb=d.labels||d.lb;D.roles=d.roles||[];save();ref()}catch(err){alert('読み込み失敗')}};r.readAsText(f);e.target.value=''}
+function impCSV(cid,e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{const txt=ev.target.result;const delim=txt.split('\n')[0].includes('\t')?'\t':',';const lines=txt.split('\n').map(l=>l.split(delim).map(c=>c.trim().replace(/^"|"$/g,'')));if(lines.length<2)return alert('データ不足');const c=D.c.find(x=>x.id===cid);if(!c.fin)c.fin={p:[],it:[]};const periods=lines[0].slice(1).filter(Boolean);periods.forEach(p=>{if(!c.fin.p.includes(p))c.fin.p.push(p)});let cnt=0;for(let i=1;i<lines.length;i++){const row=lines[i];if(!row[0])continue;let ex=c.fin.it.find(it=>it.n===row[0]);if(!ex){ex={n:row[0],v:{},role:AUTOROLE[row[0]]||''};c.fin.it.push(ex)}periods.forEach((p,j)=>{const v=row[j+1];if(v!==undefined&&v!=='')ex.v[p]=v});cnt++}save();rDet(cid);alert(periods.length+'期間 × '+cnt+'項目')};r.readAsText(f);e.target.value=''}
+
+// ═══ VIEW SWITCH ═══
+function sw(v){cv=v;document.querySelectorAll('.nav button').forEach((b,i)=>b.classList.toggle('on',(i===0&&v==='graph')||(i===1&&v==='list')||(i===2&&v==='compare')));document.getElementById('gc').style.display=v==='graph'?'block':'none';document.getElementById('lc').style.display=v==='list'?'block':'none';document.getElementById('cpc').style.display=v==='compare'?'block':'none';if(v==='list')rL();else if(v==='graph')rGr();else rCmp()}
+
+// ═══ LIST (§3.4) ═══
+function rL(){const q=document.getElementById('ls').value.toLowerCase();document.getElementById('lg').innerHTML=D.c.filter(c=>!q||c.name.toLowerCase().includes(q)||(c.ticker||'').toLowerCase().includes(q)).map(c=>{const lb=(c.labels||[]).map(l=>`<span class="tag" style="background:${lCol(l)}22;color:${lCol(l)}">${esc(l)}</span>`).join('');return`<div class="cd ${sel===c.id?'sel':''}" onclick="selC('${c.id}')"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-weight:700;font-size:13px">${esc(c.name)}</span><div style="display:flex;gap:8px;align-items:center">${c.stockPrice?'<span class="sp">'+esc(c.stockPrice)+'</span>':''}${c.ticker?'<span style="color:var(--td);font-size:10px">'+esc(c.ticker)+'</span>':''}</div></div>${lb?'<div>'+lb+'</div>':''}</div>`}).join('')}
+
+// ═══ COMPARE (§3.5) ═══
+function rCmp(){const ar=allRoles().filter(r=>r.id);const ro=ar.map(r=>`<option value="${r.id}" ${cmpRole===r.id?'selected':''}>${r.name}</option>`).join('');const rows=[];let allP=new Set();D.c.forEach(c=>{if(!c.fin)return;const it=c.fin.it.find(i=>i.role===cmpRole);if(!it)return;c.fin.p.forEach(p=>allP.add(p));rows.push({name:c.name,id:c.id,item:it})});const periods=[...allP].sort();let h=`<div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap"><span style="font-weight:700;font-size:14px">銘柄横比較</span><select onchange="cmpRole=this.value;rCmp()" style="width:auto;padding:5px 8px">${ro}</select><button class="${cmpMode==='abs'?'bp':'bo'}" onclick="cmpMode='abs';rCmp()">実数値</button><button class="${cmpMode==='growth'?'bp':'bo'}" onclick="cmpMode='growth';rCmp()">成長率</button></div>`;if(!rows.length){const rn=ar.find(r=>r.id===cmpRole);h+=`<div style="color:var(--td)">「${rn?rn.name:cmpRole}」がタグ付けされた企業がありません。</div>`;document.getElementById('cpc').innerHTML=h;return}h+=`<div style="overflow:auto"><table class="cmp-tbl"><thead><tr><th>企業</th>`;if(cmpMode==='abs')periods.forEach(p=>h+=`<th>${esc(p)}</th>`);else periods.forEach((p,i)=>{if(i>0)h+=`<th>${esc(periods[i-1])}→${esc(p)}</th>`});h+=`</tr></thead><tbody>`;rows.forEach(r=>{h+=`<tr><td style="cursor:pointer" onclick="selC('${r.id}')">${esc(r.name)}</td>`;if(cmpMode==='abs')periods.forEach(p=>{h+=`<td>${esc(r.item.v[p]||'')}</td>`});else periods.forEach((p,i)=>{if(i===0)return;const cur=pNum(r.item.v[p]),prev=pNum(r.item.v[periods[i-1]]);if(cur!==null&&prev!==null&&prev!==0){const g=((cur-prev)/Math.abs(prev)*100).toFixed(1);h+=`<td class="${parseFloat(g)>=0?'pos':'neg'}">${parseFloat(g)>=0?'+':''}${g}%</td>`}else h+=`<td>-</td>`});h+=`</tr>`});h+=`</tbody></table></div>`;document.getElementById('cpc').innerHTML=h}
+
+// ═══ DETAIL (§3.6) ═══
+function selC(id){sel=id;dTab='ov';rDet(id);if(cv==='list')rL();if(cv==='graph')hlN(id)}
+function clDet(){sel=null;document.getElementById('det').style.display='none';if(cv==='list')rL();else if(cv==='graph')rGr();else rCmp()}
+function rDet(id){const c=D.c.find(x=>x.id===id);if(!c){document.getElementById('det').style.display='none';return}document.getElementById('det').style.display='block';const lb=(c.labels||[]).map(l=>`<span class="tag" style="background:${lCol(l)}22;color:${lCol(l)}">${esc(l)}</span>`).join('');let ct='';if(dTab==='ov')ct=detOv(c);else if(dTab==='fin')ct=detFin(c);else ct=detNote(c);document.getElementById('det-in').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px"><div><div style="font-weight:700;font-size:16px">${esc(c.name)}</div><div style="display:flex;gap:10px;align-items:center;margin-top:2px">${c.ticker?'<span style="color:var(--td);font-size:11px">'+esc(c.ticker)+'</span>':''}${c.stockPrice?'<span class="sp">'+esc(c.stockPrice)+'</span>':''}</div></div><button class="bg" onclick="clDet()" style="font-size:16px">✕</button></div>${lb?'<div style="margin-bottom:12px">'+lb+'</div>':''}<div class="tabs"><button class="${dTab==='ov'?'on':''}" onclick="dTab='ov';rDet('${id}')">関係</button><button class="${dTab==='fin'?'on':''}" onclick="dTab='fin';rDet('${id}')">財務データ</button><button class="${dTab==='note'?'on':''}" onclick="dTab='note';rDet('${id}')">メモ</button></div>${ct}<div style="display:flex;gap:8px;margin-top:20px"><button class="bo" style="flex:1" onclick="openEC('${c.id}')">編集</button><button class="bd" style="flex:1" onclick="if(confirm('削除しますか？'))delC('${c.id}')">削除</button></div>`}
+
+function detOv(c){const rels=D.r.filter(r=>r.from===c.id||r.to===c.id);const pr=(c.products||[]).map(p=>`<span class="tag" style="background:var(--ad);color:var(--ac)">${esc(p)}</span>`).join('');const rh=rels.map(r=>{const oid=r.from===c.id?r.to:r.from;const o=D.c.find(x=>x.id===oid);if(!o)return'';const rt=gRT(r.type);const dir=rt.bi?'⇄':(r.from===c.id?'→':'←');return`<div class="ri"><span class="rt" style="background:${rt.color}22;color:${rt.color}">${rt.name}</span><span>${dir}</span><span class="rn" onclick="selC('${o.id}')">${esc(o.name)}</span><span style="color:var(--tm);font-size:9px;margin-left:auto">線${TH[r.thickness||0]}</span>${r.notes?'<span style="color:var(--tm);font-size:9px" title="'+esc(r.notes)+'">📝</span>':''}<button class="bg" style="font-size:9px;color:var(--tm)" onclick="delR('${r.id}')">✕</button></div>`}).join('');return`${rels.length?`<div class="sec"><div class="sec-t">関係 (${rels.length})</div>${rh}</div>`:'<div style="color:var(--td);margin-bottom:16px">関係なし</div>'}${pr?`<div class="sec"><div class="sec-t">製品・サービス</div><div>${pr}</div></div>`:''}`}
+
+function detFin(c){if(!c.fin)c.fin={p:[],it:[]};const f=c.fin;const csvBtn=`<button class="bp" onclick="document.getElementById('csv-${c.id}').click()">CSV読込</button><input type="file" id="csv-${c.id}" accept=".csv,.tsv,.txt" style="display:none" onchange="impCSV('${c.id}',event)">`;if(!f.p.length)return`<div style="color:var(--td);margin-bottom:12px">まだデータがありません</div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="bo" onclick="addFP('${c.id}')">+ 期間</button><button class="bg" onclick="addFPB('${c.id}')">一括追加</button>${csvBtn}</div>`;const ar=allRoles();let h=`<div class="fin-wrap"><table class="fin-tbl"><thead><tr><th>項目</th><th>役割タグ</th>`;f.p.forEach((p,i)=>h+=`<th>${esc(p)} <span style="cursor:pointer;opacity:.5" onclick="delFP('${c.id}',${i})">✕</span></th>`);h+=`</tr></thead><tbody>`;f.it.forEach((it,ii)=>{const ro=ar.map(r=>`<option value="${r.id}" ${(it.role||'')===r.id?'selected':''}>${r.name}</option>`).join('');h+=`<tr><td><input class="iname" value="${esc(it.n)}" onchange="uFN('${c.id}',${ii},this.value)"></td><td><select class="rsel" onchange="uFR('${c.id}',${ii},this.value)">${ro}</select></td>`;f.p.forEach(p=>{h+=`<td><input value="${esc(it.v[p]||'')}" onchange="uFV('${c.id}',${ii},'${esc(p)}',this.value)"></td>`});h+=`<td style="border:none;min-width:30px"><button class="bg" style="font-size:9px;color:var(--tm)" onclick="delFI('${c.id}',${ii})">✕</button></td></tr>`});h+=`</tbody></table></div>`;return h+`<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="bo" onclick="addFP('${c.id}')">+ 期間</button><button class="bo" onclick="addFI('${c.id}')">+ 項目</button><button class="bg" onclick="addFIB('${c.id}')">PL一括</button><button class="bg" onclick="addFPB('${c.id}')">期間一括</button>${csvBtn}</div><div style="margin-top:8px;font-size:10px;color:var(--td);line-height:1.6">CSV: 1行目=期間名, 1列目=項目名。役割タグで「比較」ビューに反映</div>`}
+
+function detNote(c){return`<div class="sec"><div class="sec-t">取材メモ</div><textarea onchange="uN('${c.id}','research',this.value)">${esc(c.research||'')}</textarea></div><div class="sec"><div class="sec-t">その他メモ</div><textarea onchange="uN('${c.id}','notes',this.value)">${esc(c.notes||'')}</textarea></div>`}
+
+// ═══ FINANCIAL OPS (§2.2) ═══
+function addFP(cid){const p=prompt('期間名（例: 2024Q1）');if(!p)return;const c=D.c.find(x=>x.id===cid);if(!c.fin)c.fin={p:[],it:[]};if(c.fin.p.includes(p))return;c.fin.p.push(p);save();rDet(cid)}
+function addFPB(cid){const p=prompt('カンマ区切り\n例: 2024Q1,2024Q2,2024Q3,2024Q4');if(!p)return;const c=D.c.find(x=>x.id===cid);if(!c.fin)c.fin={p:[],it:[]};p.split(',').map(s=>s.trim()).filter(Boolean).forEach(s=>{if(!c.fin.p.includes(s))c.fin.p.push(s)});save();rDet(cid)}
+function addFI(cid){const n=prompt('項目名');if(!n)return;D.c.find(x=>x.id===cid).fin.it.push({n,v:{},role:AUTOROLE[n]||''});save();rDet(cid)}
+function addFIB(cid){const items=[['売上高','revenue'],['売上原価',''],['売上総利益','gross_profit'],['販管費',''],['営業利益','op_profit'],['経常利益',''],['純利益','net_profit'],['EBITDA','ebitda']];const c=D.c.find(x=>x.id===cid);if(!c.fin)c.fin={p:[],it:[]};items.forEach(([n,r])=>{if(!c.fin.it.find(i=>i.n===n))c.fin.it.push({n,v:{},role:r})});save();rDet(cid)}
+function uFV(cid,ii,p,v){D.c.find(x=>x.id===cid).fin.it[ii].v[p]=v;save()}
+function uFN(cid,ii,n){D.c.find(x=>x.id===cid).fin.it[ii].n=n;save()}
+function uFR(cid,ii,r){D.c.find(x=>x.id===cid).fin.it[ii].role=r;save()}
+function delFP(cid,pi){if(!confirm('この期間を削除？'))return;const c=D.c.find(x=>x.id===cid);const p=c.fin.p[pi];c.fin.p.splice(pi,1);c.fin.it.forEach(i=>delete i.v[p]);save();rDet(cid)}
+function delFI(cid,ii){D.c.find(x=>x.id===cid).fin.it.splice(ii,1);save();rDet(cid)}
+function uN(cid,f,v){D.c.find(x=>x.id===cid)[f]=v;save()}
+
+// ═══ COMPANY (§4.1) ═══
+function openCM(){eid=null;_fl=[];renderCMB();document.getElementById('cm').style.display='flex'}
+function openEC(id){const c=D.c.find(x=>x.id===id);if(!c)return;eid=id;_fl=[...(c.labels||[])];renderCMB();document.getElementById('fn').value=c.name;document.getElementById('ft').value=c.ticker||'';document.getElementById('fsp').value=c.stockPrice||'';document.getElementById('fpd').value=(c.products||[]).join(', ');document.getElementById('cm').style.display='flex'}
+function renderCMB(){document.getElementById('cmb').innerHTML=`<div class="ml-t">${eid?'企業編集':'企業追加'}</div><div class="fld"><label>企業名 *</label><input id="fn"></div><div class="rw"><div class="fld"><label>ティッカー</label><input id="ft" placeholder="AAPL"></div><div class="fld"><label>株価</label><input id="fsp" placeholder="$950, ¥3,500"></div></div><div class="sl">ラベリング</div><div id="cml" style="margin-bottom:8px"></div><div style="display:flex;gap:6px;margin-bottom:10px"><select id="cmls" style="flex:1"></select><button class="bo" onclick="aLF()">追加</button></div><div class="sl">製品・サービス（カンマ区切り）</div><div class="fld"><input id="fpd" placeholder="Azure, Office 365"></div><button class="bp" style="width:100%;margin-top:8px" onclick="saveC()">保存</button>`;rFL();pLS()}
+function pLS(){const s=document.getElementById('cmls');s.innerHTML='<option value="">選択...</option>'+D.lb.filter(l=>!_fl.includes(l)).map(l=>`<option>${esc(l)}</option>`).join('')+'<option value="__n">+ 新規作成</option>'}
+function aLF(){let v=document.getElementById('cmls').value;if(v==='__n'){v=prompt('新しいラベル名');if(!v)return;if(!D.lb.includes(v)){D.lb.push(v);save()}}if(!v||_fl.includes(v))return;_fl.push(v);rFL();pLS()}
+function rFL(){document.getElementById('cml').innerHTML=_fl.map(l=>`<span class="tag" style="background:${lCol(l)}22;color:${lCol(l)}">${esc(l)}<span class="tag-rm" onclick="_fl=_fl.filter(x=>x!=='${l.replace(/'/g,"\\'")}');rFL();pLS()">✕</span></span>`).join('')||'<span style="color:var(--td);font-size:10px">なし</span>'}
+function saveC(){const n=document.getElementById('fn').value.trim();if(!n)return alert('企業名は必須');const tk=document.getElementById('ft').value.trim();const sp=document.getElementById('fsp').value.trim();const pr=document.getElementById('fpd').value.trim();const products=pr?pr.split(/[,、]/).map(s=>s.trim()).filter(Boolean):[];if(eid){D.c=D.c.map(c=>c.id===eid?{...c,name:n,ticker:tk,stockPrice:sp,labels:[..._fl],products}:c)}else{D.c.push({id:uid(),name:n,ticker:tk,stockPrice:sp,labels:[..._fl],products,fin:{p:[],it:[]},research:'',notes:''})}document.getElementById('cm').style.display='none';ref();if(eid)rDet(eid);eid=null}
+function delC(id){D.c=D.c.filter(c=>c.id!==id);D.r=D.r.filter(r=>r.from!==id&&r.to!==id);clDet();ref()}
+
+// ═══ RELATION (§4.2) ═══
+function openRM(){document.getElementById('rmb').innerHTML=`<div class="ml-t">関係追加</div><div class="fld"><label>企業A（起点）</label><select id="rf"><option value="">選択...</option>${D.c.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div><div class="fld"><label>関係タイプ</label><select id="rty">${D.rt.map(t=>`<option value="${t.id}">${t.name}${t.bi?' ⇄':' →'}</option>`).join('')}</select></div><div class="fld"><label>企業B（終点）</label><select id="rto"><option value="">選択...</option>${D.c.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div><div class="fld"><label>線の太さ（重要度）</label><select id="rth">${TH.map((t,i)=>`<option value="${i}">${t}px${i===0?' 細':i===3?' 中':i===7?' 太':''}</option>`).join('')}</select></div><div class="fld"><label>メモ</label><input id="rnote"></div><div style="font-size:10px;color:var(--td);line-height:1.6;margin-bottom:12px">⇄ = 双方向矢印 / → = 一方向矢印</div><button class="bp" style="width:100%;margin-top:8px" onclick="saveR()">追加</button>`;document.getElementById('rm').style.display='flex'}
+function saveR(){const f=document.getElementById('rf').value,t=document.getElementById('rto').value,ty=document.getElementById('rty').value;const th=parseInt(document.getElementById('rth').value)||0,n=document.getElementById('rnote').value.trim();if(!f||!t||f===t)return alert('異なる2企業を選択');if(D.r.find(r=>r.from===f&&r.to===t&&r.type===ty))return alert('同じ関係が存在');D.r.push({id:uid(),from:f,to:t,type:ty,thickness:th,notes:n});document.getElementById('rm').style.display='none';ref()}
+function delR(id){D.r=D.r.filter(r=>r.id!==id);ref()}
+
+// ═══ SETTINGS (§4.3) ═══
+function openSM(){rSM();document.getElementById('sm').style.display='flex'}
+function rSM(){
+  // §4.3 Labels
+  let h=`<div class="ml-t">⚙ 設定</div><div class="sl">ラベル管理</div><div style="margin-bottom:8px">${D.lb.map((l,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--bd)"><span class="tag" style="background:${lCol(l)}22;color:${lCol(l)}">${esc(l)}</span><button class="bg" style="margin-left:auto;font-size:9px;color:var(--tm)" onclick="D.lb.splice(${i},1);save();rSM()">削除</button></div>`).join('')||'<span style="color:var(--td)">なし</span>'}</div><div style="display:flex;gap:6px;margin-bottom:16px"><input id="nl" placeholder="新しいラベル名"><button class="bo" onclick="const v=document.getElementById('nl').value.trim();if(v&&!D.lb.includes(v)){D.lb.push(v);save();rSM()}">追加</button></div>`;
+  // §4.3 Relation types
+  h+=`<div class="sl">関係タイプ管理</div><div style="margin-bottom:8px">${D.rt.map((t,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--bd)"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:${t.color}"></span><span style="font-size:11px">${esc(t.name)}</span><span style="font-size:9px;color:var(--td)">${t.bi?'⇄':'→'}</span>${i>=6?`<button class="bg" style="margin-left:auto;font-size:9px;color:var(--tm)" onclick="D.rt.splice(${i},1);save();rSM()">削除</button>`:'<span style="margin-left:auto;font-size:9px;color:var(--tm)">既定</span>'}</div>`).join('')}</div><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:16px"><input id="nrn" placeholder="タイプ名" style="flex:1;min-width:80px"><input id="nrc" type="color" value="#fb923c" style="width:36px;padding:2px"><select id="nrb" style="width:80px"><option value="0">→</option><option value="1">⇄</option></select><button class="bo" onclick="const n=document.getElementById('nrn').value.trim();if(!n)return;D.rt.push({id:'c_'+uid(),name:n,color:document.getElementById('nrc').value,bi:+document.getElementById('nrb').value});save();rSM()">追加</button></div>`;
+  // §4.3 Role tags (NEW in v4)
+  h+=`<div class="sl">役割タグ管理</div><div style="margin-bottom:8px">${DROLES.map(r=>`<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--bd)"><span style="font-size:11px">${esc(r.name)}</span><span style="margin-left:auto;font-size:9px;color:var(--tm)">既定</span></div>`).join('')}${(D.roles||[]).map((r,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--bd)"><span style="font-size:11px">${esc(r.name)}</span><button class="bg" style="margin-left:auto;font-size:9px;color:var(--tm)" onclick="delRole(${i})">削除</button></div>`).join('')}</div><div style="display:flex;gap:6px"><input id="nrl" placeholder="新しい役割タグ名（例: ARPU, FCF）"><button class="bo" onclick="addRole()">追加</button></div>`;
+  document.getElementById('smb').innerHTML=h}
+
+function addRole(){const n=document.getElementById('nrl').value.trim();if(!n)return;if(!D.roles)D.roles=[];const id='cr_'+uid();D.roles.push({id,name:n});save();rSM()}
+function delRole(i){const rid=D.roles[i].id;D.roles.splice(i,1);D.c.forEach(c=>{if(c.fin)c.fin.it.forEach(it=>{if(it.role===rid)it.role=''})});save();rSM()}
+
+// ═══ GRAPH (§3.3) ═══
+function rGr(){
+  const svg=d3.select('#gs');svg.selectAll('*').remove();document.getElementById('ge').style.display=D.c.length?'none':'flex';
+  const ms=document.getElementById('nmsel');const curV=ms.value||'';const ar=allRoles().filter(r=>r.id);ms.innerHTML='<option value="">均一</option>'+ar.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');ms.value=curV;const sizeRole=ms.value;
+  if(!D.c.length)return;const ct=document.getElementById('gc'),W=ct.clientWidth,H=ct.clientHeight,g=svg.append('g');zO=d3.zoom().scaleExtent([.15,5]).on('zoom',e=>g.attr('transform',e.transform));svg.call(zO);const defs=svg.append('defs');
+  let vals=[];if(sizeRole)D.c.forEach(c=>{const v=getMetricVal(c,sizeRole);if(v!==null&&v>0)vals.push(v)});const maxV=vals.length?Math.max(...vals):0;const minR=20,maxR=50;
+  const nodes=D.c.map(c=>{let r=24;if(sizeRole&&maxV>0){const v=getMetricVal(c,sizeRole);r=v!==null&&v>0?minR+(v/maxV)*(maxR-minR):minR}return{id:c.id,name:c.name,lb:c.labels||[],r}});
+  const links=D.r.map(r=>({source:r.from,target:r.to,type:r.type,th:r.thickness||0})).filter(l=>nodes.find(n=>n.id===l.source)&&nodes.find(n=>n.id===l.target));
+  sim=d3.forceSimulation(nodes).force('link',d3.forceLink(links).id(d=>d.id).distance(160)).force('charge',d3.forceManyBody().strength(-500)).force('center',d3.forceCenter(W/2,H/2)).force('collision',d3.forceCollide(d=>d.r+10));
+  const link=g.selectAll('.lk').data(links).join('line').attr('stroke',d=>gRT(d.type).color).attr('stroke-width',d=>TH[d.th]||1.5).attr('stroke-opacity',.5);
+  links.forEach((l,i)=>{const tR=nodes.find(n=>n.id===l.target)?.r||24;const sR=nodes.find(n=>n.id===l.source)?.r||24;const rt=gRT(l.type);const fid='af'+i;defs.append('marker').attr('id',fid).attr('viewBox','0 0 12 8').attr('refX',tR+12).attr('refY',4).attr('markerWidth',9).attr('markerHeight',7).attr('orient','auto').append('path').attr('d','M0,0 L12,4 L0,8Z').attr('fill',rt.color);l._fid=fid;if(rt.bi){const rid='ar'+i;defs.append('marker').attr('id',rid).attr('viewBox','0 0 12 8').attr('refX',-(sR)).attr('refY',4).attr('markerWidth',9).attr('markerHeight',7).attr('orient','auto').append('path').attr('d','M12,0 L0,4 L12,8Z').attr('fill',rt.color);l._rid=rid}});
+  link.attr('marker-end',d=>'url(#'+d._fid+')').each(function(d){if(d._rid)d3.select(this).attr('marker-start','url(#'+d._rid+')')});
+  const ll=g.selectAll('.ll').data(links).join('text').text(d=>gRT(d.type).name).attr('fill',d=>gRT(d.type).color).attr('font-size',9).attr('font-family','var(--f)').attr('text-anchor','middle').attr('dy',d=>-(TH[d.th]/2+6)).attr('opacity',.7);
+  const node=g.selectAll('.nd').data(nodes).join('g').attr('cursor','pointer').call(d3.drag().on('start',(e,d)=>{if(!e.active)sim.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y}).on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y}).on('end',(e,d)=>{if(!e.active)sim.alphaTarget(0);d.fx=null;d.fy=null})).on('click',(e,d)=>selC(d.id));
+  node.append('circle').attr('r',d=>d.r).attr('fill',d=>d.id===sel?'rgba(0,229,200,.12)':'var(--s1)').attr('stroke',d=>d.id===sel?'var(--ac)':'var(--bd)').attr('stroke-width',d=>d.id===sel?2.5:1.2);
+  node.each(function(d){(d.lb||[]).slice(0,4).forEach((l,i)=>{d3.select(this).append('circle').attr('r',3).attr('cx',(d.r*.6)+i*8).attr('cy',-(d.r*.8)).attr('fill',lCol(l))})});
+  node.append('text').text(d=>{const mx=Math.floor(d.r/5);return d.name.length>mx?d.name.slice(0,mx-1)+'…':d.name}).attr('fill','var(--txt)').attr('font-size',d=>Math.max(9,Math.min(12,d.r/2.5))).attr('font-family','var(--f)').attr('text-anchor','middle').attr('dy',4);
+  node.append('title').text(d=>d.name);
+  sim.on('tick',()=>{link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);ll.attr('x',d=>(d.source.x+d.target.x)/2).attr('y',d=>(d.source.y+d.target.y)/2);node.attr('transform',d=>`translate(${d.x},${d.y})`)});
+  document.getElementById('gl').innerHTML=D.rt.map(t=>`<div class="li"><div class="ld" style="background:${t.color}"></div>${t.name}${t.bi?' ⇄':''}</div>`).join('')}
+
+function hlN(id){d3.selectAll('#gs .nd circle:first-child').attr('fill',d=>d.id===id?'rgba(0,229,200,.12)':'var(--s1)').attr('stroke',d=>d.id===id?'var(--ac)':'var(--bd)').attr('stroke-width',d=>d.id===id?2.5:1.2)}
+function zG(f){d3.select('#gs').transition().duration(300).call(zO.scaleBy,f)}
+function rG0(){d3.select('#gs').transition().duration(500).call(zO.transform,d3.zoomIdentity)}
+
+// ═══ INIT (§2.5 async) ═══
+(async()=>{
+  await loadDB();
+  if(!D.rt.length)D.rt=[...DRT];
+  if(!D.roles)D.roles=[];
+  save();rGr();
+  window.addEventListener('resize',()=>{if(cv==='graph')rGr()});
+})();
+</script>
+</body>
+</html>
