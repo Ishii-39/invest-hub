@@ -115,7 +115,7 @@ function lCol(l){const i=D.lb.indexOf(l);return LCOL[((i%LCOL.length)+LCOL.lengt
 function pNum(s){if(!s)return null;const n=parseFloat(String(s).replace(/[,、 ]/g,''));return isNaN(n)?null:n}
 function allRoles(){return[{id:'',name:'なし'},...DROLES,...(D.roles||[])]}
 function getFtabs(){return D.ftabs||DFTABS}
-function parseCsvLine(line,delim){const r=[];let cur='',inQ=false;for(let i=0;i<line.length;i++){const ch=line[i];if(inQ){if(ch==='"'){if(i+1<line.length&&line[i+1]==='"'){cur+='"';i++}else inQ=false}else cur+=ch}else{if(ch==='"')inQ=true;else if(ch===delim){r.push(cur.trim());cur=''}else cur+=ch}}r.push(cur.trim());return r}
+function tryParseDate(s){if(!s)return null;let m;if(m=s.match(/^(\d{4})[Qq](\d)$/))return new Date(+m[1],(+m[2]-1)*3,1);if(m=s.match(/^FY(\d{4})$/i))return new Date(+m[1],0,1);if(m=s.match(/^(\d{4})[-\/](\d{1,2})$/))return new Date(+m[1],+m[2]-1,1);if(m=s.match(/^(\d{4})年(\d{1,2})月$/))return new Date(+m[1],+m[2]-1,1);if(m=s.match(/^(\d{4})$/))return new Date(+m[1],0,1);return null} function parseCsvLine(line,delim){const r=[];let cur='',inQ=false;for(let i=0;i<line.length;i++){const ch=line[i];if(inQ){if(ch==='"'){if(i+1<line.length&&line[i+1]==='"'){cur+='"';i++}else inQ=false}else cur+=ch}else{if(ch==='"')inQ=true;else if(ch===delim){r.push(cur.trim());cur=''}else cur+=ch}}r.push(cur.trim());return r}
 function ensureFins(c){const tabs=getFtabs();if(!c.fins)c.fins=[];if(c.fin){if(c.fin.p&&c.fin.p.length||c.fin.it&&c.fin.it.length){if(!c.fins[0])c.fins[0]={p:[],it:[]};c.fins[0].p=c.fin.p||[];c.fins[0].it=(c.fin.it||[]).map(i=>({...i,v:{...i.v}}))}delete c.fin}while(c.fins.length<tabs.length)c.fins.push({p:[],it:[]})}
 function getMetricVal(c,rid){if(!rid)return null;ensureFins(c);for(const tbl of c.fins){const it=tbl.it.find(i=>i.role===rid);if(!it)continue;for(let i=tbl.p.length-1;i>=0;i--){const v=pNum(it.v[tbl.p[i]]);if(v!==null)return v}}return null}
 
@@ -197,7 +197,7 @@ function renderChart(rows,periods){
       else if(cmpMode==='growth'){
         if(pi===0){y=0}else{const prev=pNum(r.item.v[periods[pi-1]]);y=(prev!==null&&prev!==0)?((raw-prev)/Math.abs(prev)*100):null}
       }else{y=(baseVal!==null&&baseVal!==0)?(raw/baseVal*100):null}
-      if(y!==null)pts.push({x:pi,y,period:p,raw,name:r.name});
+      if(y!==null)pts.push({x:xVal(pi),y,period:p,raw,name:r.name});
     });
     return{name:r.name,id:r.id,color:CCOL[ri%CCOL.length],pts};
   }).filter(s=>s.pts.length>0);
@@ -208,7 +208,7 @@ function renderChart(rows,periods){
   const yMin=Math.min(...allY),yMax=Math.max(...allY);
   const yPad=(yMax-yMin)*0.1||10;
 
-  const xScale=d3.scaleLinear().domain([0,periods.length-1]).range([0,w]);
+  const dates=periods.map(tryParseDate);const useDateAxis=dates.every(d=>d!==null);   const xScale=useDateAxis?d3.scaleTime().domain([d3.min(dates),d3.max(dates)]).range([0,w]):d3.scaleLinear().domain([0,periods.length-1]).range([0,w]);   const xVal=useDateAxis?(pi=>dates[pi]):(pi=>pi);
   const yScale=d3.scaleLinear().domain([yMin-yPad,yMax+yPad]).range([h,0]);
 
   const svg=d3.select('#cmp-chart').append('svg').attr('width',W).attr('height',H);
@@ -221,7 +221,7 @@ function renderChart(rows,periods){
   const xAxis=g.append('g').attr('transform',`translate(0,${h})`);
   periods.forEach((p,i)=>{
     xAxis.append('text').attr('x',xScale(i)).attr('y',25).attr('text-anchor','middle').attr('fill','#5a7490').attr('font-size',10).attr('font-family','var(--f)').text(p);
-    xAxis.append('line').attr('x1',xScale(i)).attr('x2',xScale(i)).attr('y1',0).attr('y2',5).attr('stroke','#5a7490');
+    xAxis.append('line').attr('x1',xScale(xVal(i))).attr('x2',xScale(xVal(i))).attr('y1',0).attr('y2',5).attr('stroke','#5a7490');
   });
   xAxis.append('line').attr('x1',0).attr('x2',w).attr('y1',0).attr('y2',0).attr('stroke','#1a2740');
 
