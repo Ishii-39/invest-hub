@@ -257,7 +257,7 @@ function rGr(){
   const node=g.selectAll('.nd').data(nodes).join('g').attr('cursor','pointer').call(d3.drag().on('start',(e,d)=>{if(!e.active)sim.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y}).on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y}).on('end',(e,d)=>{if(!e.active)sim.alphaTarget(0);d.fx=null;d.fy=null})).on('click',(e,d)=>selC(d.id));
   node.append('circle').attr('r',d=>d.r).attr('fill',d=>d.id===sel?'rgba(0,229,200,.12)':'var(--s1)').attr('stroke',d=>d.id===sel?'var(--ac)':'var(--bd)').attr('stroke-width',d=>d.id===sel?2.5:1.2);
   node.each(function(d){(d.lb||[]).slice(0,4).forEach((l,i)=>{d3.select(this).append('circle').attr('r',3).attr('cx',(d.r*.6)+i*8).attr('cy',-(d.r*.8)).attr('fill',lCol(l))})});
-  node.append('text').text(d=>{const mx=Math.floor(d.r/5);return d.name.length>mx?d.name.slice(0,mx-1)+'…':d.name}).attr('fill','var(--txt)').attr('font-size',d=>Math.max(9,Math.min(12,d.r/2.5))).attr('font-family','var(--f)').attr('text-anchor','middle').attr('dy',4);
+  node.append('text').text(d=>d.name.length>15?d.name.slice(0,14)+'…':d.name).attr('fill','var(--txt)').attr('font-size',d=>Math.max(9,Math.min(12,d.r/2.5))).attr('font-family','var(--f)').attr('text-anchor','middle').attr('dy',4);
   node.append('title').text(d=>d.name);
   // Lines start/end at circumference
   sim.on('tick',()=>{link.each(function(d){const dx=d.target.x-d.source.x,dy=d.target.y-d.source.y,dist=Math.sqrt(dx*dx+dy*dy)||1,sr=d.source.r||24,tr=d.target.r||24;d3.select(this).attr('x1',d.source.x+dx/dist*sr).attr('y1',d.source.y+dy/dist*sr).attr('x2',d.target.x-dx/dist*tr).attr('y2',d.target.y-dy/dist*tr)});ll.attr('x',d=>(d.source.x+d.target.x)/2).attr('y',d=>(d.source.y+d.target.y)/2);node.attr('transform',d=>`translate(${d.x},${d.y})`)});
