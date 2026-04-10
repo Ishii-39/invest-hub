@@ -219,7 +219,7 @@ function detNote(c){return`<div class="sec"><div class="sec-t">取材メモ</div
 
 // Tab management
 function addFinTab(){const n=prompt('新しいテーブル名（例: セグメント別, 週次KPI）');if(!n)return;if(!D.ftabs)D.ftabs=[...DFTABS];D.ftabs.push(n);D.c.forEach(c=>{if(c.fins)c.fins.push({p:[],it:[]})});save();if(sel)rDet(sel)}
-function delFinTab(ti,cid){const tabs=getFtabs();if(tabs.length<=1)return;if(!confirm('「'+tabs[ti]+'」テーブルを全企業から削除しますか？'))return;if(!D.ftabs)D.ftabs=[...DFTABS];D.ftabs.splice(ti,1);D.c.forEach(c=>{if(c.fins&&c.fins[ti]!==undefined)c.fins.splice(ti,1)});if(fti>=D.ftabs.length)fti=0;save();rDet(cid)}
+function delFinTab(ti,cid){const tabs=getFtabs();if(!confirm('「'+tabs[ti]+'」のデータをこの企業から削除しますか？'))return;const c=D.c.find(x=>x.id===cid);if(c&&c.fins&&c.fins[ti])c.fins[ti]={p:[],it:[]};save();rDet(cid)}
 
 // Financial ops
 function addFP(cid,ti){const p=prompt('期間名');if(!p)return;const c=D.c.find(x=>x.id===cid);ensureFins(c);if(c.fins[ti].p.includes(p))return;c.fins[ti].p.push(p);save();rDet(cid)}
