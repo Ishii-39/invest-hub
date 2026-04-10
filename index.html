@@ -71,6 +71,7 @@ label{display:block;color:var(--td);font-size:10px;margin-bottom:4px;text-transf
 .fin-tbl .iname{text-align:left;width:100px}
 .fin-tbl .rsel{width:60px;padding:2px;font-size:9px;background:var(--bg);border:1px solid var(--bd);color:var(--td);border-radius:3px}
 .sp{color:var(--amb);font-weight:600;font-size:12px}
+.chart-tip{position:absolute;background:var(--s2);border:1px solid var(--bd);padding:6px 10px;border-radius:4px;font-size:11px;pointer-events:none;z-index:10}
 @media(max-width:768px){#det{width:100%;position:fixed;inset:0;z-index:50}.ml{width:95vw}#lg{grid-template-columns:1fr}}
 </style>
 </head>
@@ -101,9 +102,10 @@ const LCOL=['#00e5c8','#3b9eff','#ffb020','#ff4d6a','#a78bfa','#f472b6','#fb923c
 const DROLES=[{id:'revenue',name:'売上高'},{id:'op_profit',name:'営業利益'},{id:'gross_profit',name:'売上総利益'},{id:'net_profit',name:'純利益'},{id:'ebitda',name:'EBITDA'},{id:'market_cap',name:'時価総額'},{id:'stock_price',name:'株価'},{id:'eps',name:'EPS'},{id:'per',name:'PER'}];
 const AUTOROLE={'売上高':'revenue','営業利益':'op_profit','売上総利益':'gross_profit','純利益':'net_profit','EBITDA':'ebitda','時価総額':'market_cap','株価':'stock_price','EPS':'eps','PER':'per'};
 const DFTABS=['四半期','通期','月次','株価'];
+const CCOL=['#00e5c8','#3b9eff','#ffb020','#ff4d6a','#a78bfa','#f472b6','#fb923c','#34d399','#e879f9','#fbbf24'];
 
 let D={c:[],r:[],rt:[],lb:[],roles:[],ftabs:null};
-let sel=null,eid=null,cv='graph',sim,zO,dTab='ov',fti=0,_fl=[],cmpRole='revenue',cmpMode='abs',db=null;
+let sel=null,eid=null,cv='graph',sim,zO,dTab='ov',fti=0,_fl=[],cmpRole='revenue',cmpMode='abs',cmpView='tbl',db=null;
 let hist=[];const MH=10;
 
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
@@ -113,24 +115,8 @@ function lCol(l){const i=D.lb.indexOf(l);return LCOL[((i%LCOL.length)+LCOL.lengt
 function pNum(s){if(!s)return null;const n=parseFloat(String(s).replace(/[,、 ]/g,''));return isNaN(n)?null:n}
 function allRoles(){return[{id:'',name:'なし'},...DROLES,...(D.roles||[])]}
 function getFtabs(){return D.ftabs||DFTABS}
-
-function parseCsvLine(line,delim){
-  const r=[];let cur='',inQ=false;
-  for(let i=0;i<line.length;i++){
-    const ch=line[i];
-    if(inQ){if(ch==='"'){if(i+1<line.length&&line[i+1]==='"'){cur+='"';i++}else inQ=false}else cur+=ch}
-    else{if(ch==='"')inQ=true;else if(ch===delim){r.push(cur.trim());cur=''}else cur+=ch}
-  }
-  r.push(cur.trim());return r;
-}
-
-function ensureFins(c){
-  const tabs=getFtabs();
-  if(!c.fins)c.fins=[];
-  if(c.fin){if(c.fin.p&&c.fin.p.length||c.fin.it&&c.fin.it.length){if(!c.fins[0])c.fins[0]={p:[],it:[]};c.fins[0].p=c.fin.p||[];c.fins[0].it=(c.fin.it||[]).map(i=>({...i,v:{...i.v}}))}delete c.fin}
-  while(c.fins.length<tabs.length)c.fins.push({p:[],it:[]});
-}
-
+function parseCsvLine(line,delim){const r=[];let cur='',inQ=false;for(let i=0;i<line.length;i++){const ch=line[i];if(inQ){if(ch==='"'){if(i+1<line.length&&line[i+1]==='"'){cur+='"';i++}else inQ=false}else cur+=ch}else{if(ch==='"')inQ=true;else if(ch===delim){r.push(cur.trim());cur=''}else cur+=ch}}r.push(cur.trim());return r}
+function ensureFins(c){const tabs=getFtabs();if(!c.fins)c.fins=[];if(c.fin){if(c.fin.p&&c.fin.p.length||c.fin.it&&c.fin.it.length){if(!c.fins[0])c.fins[0]={p:[],it:[]};c.fins[0].p=c.fin.p||[];c.fins[0].it=(c.fin.it||[]).map(i=>({...i,v:{...i.v}}))}delete c.fin}while(c.fins.length<tabs.length)c.fins.push({p:[],it:[]})}
 function getMetricVal(c,rid){if(!rid)return null;ensureFins(c);for(const tbl of c.fins){const it=tbl.it.find(i=>i.role===rid);if(!it)continue;for(let i=tbl.p.length-1;i>=0;i--){const v=pNum(it.v[tbl.p[i]]);if(v!==null)return v}}return null}
 
 function pushHist(){try{hist.push(JSON.stringify({c:D.c,r:D.r,rt:D.rt,lb:D.lb,roles:D.roles,ftabs:D.ftabs}));if(hist.length>MH)hist.shift()}catch(e){}}
@@ -145,30 +131,136 @@ function ref(){save();if(cv==='graph')rGr();else if(cv==='list')rL();else rCmp()
 
 function expD(){const b=new Blob([JSON.stringify({companies:D.c,relations:D.r,relTypes:D.rt,labels:D.lb,roles:D.roles,ftabs:D.ftabs},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='invest-hub-'+new Date().toISOString().slice(0,10)+'.json';a.click()}
 function impD(e){const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=ev=>{try{const d=JSON.parse(ev.target.result);D.c=d.companies||d.c||[];D.r=d.relations||d.r||[];if(d.relTypes||d.rt)D.rt=d.relTypes||d.rt;if(d.labels||d.lb)D.lb=d.labels||d.lb;D.roles=d.roles||[];D.ftabs=d.ftabs||null;save();ref()}catch(err){alert('読み込み失敗')}};rd.readAsText(f);e.target.value=''}
-function impCSV(cid,ti,e){
-  const f=e.target.files[0];if(!f)return;
-  const rd=new FileReader();rd.onload=ev=>{
-    const txt=ev.target.result;const firstLine=txt.split('\n')[0];
-    const delim=firstLine.includes('\t')?'\t':',';
-    const lines=txt.split('\n').filter(l=>l.trim());
-    const parsed=lines.map(l=>parseCsvLine(l,delim));
-    if(parsed.length<2)return alert('データ不足');
-    const c=D.c.find(x=>x.id===cid);ensureFins(c);const tbl=c.fins[ti];
-    const periods=parsed[0].slice(1).filter(Boolean);
-    periods.forEach(p=>{if(!tbl.p.includes(p))tbl.p.push(p)});
-    let cnt=0;
-    for(let i=1;i<parsed.length;i++){const row=parsed[i];if(!row[0]||!row[0].trim())continue;const item={n:row[0].trim(),v:{},role:AUTOROLE[row[0].trim()]||''};periods.forEach((p,j)=>{const v=row[j+1];if(v!==undefined&&v.trim()!=='')item.v[p]=v.trim()});tbl.it.push(item);cnt++}
-    save();rDet(cid);alert(periods.length+'期間 × '+cnt+'項目 を追加');
-  };rd.readAsText(f);e.target.value='';
-}
+function impCSV(cid,ti,e){const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=ev=>{const txt=ev.target.result;const firstLine=txt.split('\n')[0];const delim=firstLine.includes('\t')?'\t':',';const lines=txt.split('\n').filter(l=>l.trim());const parsed=lines.map(l=>parseCsvLine(l,delim));if(parsed.length<2)return alert('データ不足');const c=D.c.find(x=>x.id===cid);ensureFins(c);const tbl=c.fins[ti];const periods=parsed[0].slice(1).filter(Boolean);periods.forEach(p=>{if(!tbl.p.includes(p))tbl.p.push(p)});let cnt=0;for(let i=1;i<parsed.length;i++){const row=parsed[i];if(!row[0]||!row[0].trim())continue;const item={n:row[0].trim(),v:{},role:AUTOROLE[row[0].trim()]||''};periods.forEach((p,j)=>{const v=row[j+1];if(v!==undefined&&v.trim()!=='')item.v[p]=v.trim()});tbl.it.push(item);cnt++}save();rDet(cid);alert(periods.length+'期間 × '+cnt+'項目 を追加')};rd.readAsText(f);e.target.value=''}
 function impCSVR(cid,ti,e){const f=e.target.files[0];if(!f)return;if(!confirm('現在のテーブルを上書きします。よろしいですか？'))return void(e.target.value='');const rd=new FileReader();rd.onload=ev=>{const txt=ev.target.result;const firstLine=txt.split('\n')[0];const delim=firstLine.includes('\t')?'\t':',';const lines=txt.split('\n').filter(l=>l.trim());const parsed=lines.map(l=>parseCsvLine(l,delim));if(parsed.length<2)return alert('データ不足');const c=D.c.find(x=>x.id===cid);ensureFins(c);c.fins[ti]={p:[],it:[]};const tbl=c.fins[ti];const periods=parsed[0].slice(1).filter(Boolean);tbl.p=periods;let cnt=0;for(let i=1;i<parsed.length;i++){const row=parsed[i];if(!row[0]||!row[0].trim())continue;const item={n:row[0].trim(),v:{},role:AUTOROLE[row[0].trim()]||''};periods.forEach((p,j)=>{const v=row[j+1];if(v!==undefined&&v.trim()!=='')item.v[p]=v.trim()});tbl.it.push(item);cnt++}save();rDet(cid);alert(periods.length+'期間 × '+cnt+'項目 で上書きしました')};rd.readAsText(f);e.target.value=''}
 
 function sw(v){cv=v;document.querySelectorAll('.nav button').forEach((b,i)=>b.classList.toggle('on',(i===0&&v==='graph')||(i===1&&v==='list')||(i===2&&v==='compare')));document.getElementById('gc').style.display=v==='graph'?'block':'none';document.getElementById('lc').style.display=v==='list'?'block':'none';document.getElementById('cpc').style.display=v==='compare'?'block':'none';if(v==='list')rL();else if(v==='graph')rGr();else rCmp()}
 
 function rL(){const q=document.getElementById('ls').value.toLowerCase();document.getElementById('lg').innerHTML=D.c.filter(c=>!q||c.name.toLowerCase().includes(q)||(c.ticker||'').toLowerCase().includes(q)).map(c=>{const lb=(c.labels||[]).map(l=>`<span class="tag" style="background:${lCol(l)}22;color:${lCol(l)}">${esc(l)}</span>`).join('');return`<div class="cd ${sel===c.id?'sel':''}" onclick="selC('${c.id}')"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-weight:700;font-size:13px">${esc(c.name)}</span><div style="display:flex;gap:8px;align-items:center">${c.stockPrice?'<span class="sp">'+esc(c.stockPrice)+'</span>':''}${c.ticker?'<span style="color:var(--td);font-size:10px">'+esc(c.ticker)+'</span>':''}</div></div>${lb?'<div>'+lb+'</div>':''}</div>`}).join('')}
 
-function rCmp(){const ar=allRoles().filter(r=>r.id);const ro=ar.map(r=>`<option value="${r.id}" ${cmpRole===r.id?'selected':''}>${r.name}</option>`).join('');const rows=[];let allP=new Set();D.c.forEach(c=>{ensureFins(c);for(const tbl of c.fins){const it=tbl.it.find(i=>i.role===cmpRole);if(!it)continue;tbl.p.forEach(p=>allP.add(p));rows.push({name:c.name,id:c.id,item:it});break}});const periods=[...allP].sort();let h=`<div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap"><span style="font-weight:700;font-size:14px">銘柄横比較</span><select onchange="cmpRole=this.value;rCmp()" style="width:auto;padding:5px 8px">${ro}</select><button class="${cmpMode==='abs'?'bp':'bo'}" onclick="cmpMode='abs';rCmp()">実数値</button><button class="${cmpMode==='growth'?'bp':'bo'}" onclick="cmpMode='growth';rCmp()">成長率</button></div>`;if(!rows.length){const rn=ar.find(r=>r.id===cmpRole);h+=`<div style="color:var(--td)">「${rn?rn.name:cmpRole}」がタグ付けされた企業がありません。</div>`;document.getElementById('cpc').innerHTML=h;return}h+=`<div style="overflow:auto"><table class="cmp-tbl"><thead><tr><th>企業</th>`;if(cmpMode==='abs')periods.forEach(p=>h+=`<th>${esc(p)}</th>`);else periods.forEach((p,i)=>{if(i>0)h+=`<th>${esc(periods[i-1])}→${esc(p)}</th>`});h+=`</tr></thead><tbody>`;rows.forEach(r=>{h+=`<tr><td style="cursor:pointer" onclick="selC('${r.id}')">${esc(r.name)}</td>`;if(cmpMode==='abs')periods.forEach(p=>{h+=`<td>${esc(r.item.v[p]||'')}</td>`});else periods.forEach((p,i)=>{if(i===0)return;const cur=pNum(r.item.v[p]),prev=pNum(r.item.v[periods[i-1]]);if(cur!==null&&prev!==null&&prev!==0){const g=((cur-prev)/Math.abs(prev)*100).toFixed(1);h+=`<td class="${parseFloat(g)>=0?'pos':'neg'}">${parseFloat(g)>=0?'+':''}${g}%</td>`}else h+=`<td>-</td>`});h+=`</tr>`});h+=`</tbody></table></div>`;document.getElementById('cpc').innerHTML=h}
+// ═══ COMPARE — table + chart ═══
+function rCmp(){
+  const ar=allRoles().filter(r=>r.id);
+  const ro=ar.map(r=>`<option value="${r.id}" ${cmpRole===r.id?'selected':''}>${r.name}</option>`).join('');
+  const rows=[];let allP=new Set();
+  D.c.forEach(c=>{ensureFins(c);for(const tbl of c.fins){const it=tbl.it.find(i=>i.role===cmpRole);if(!it)continue;tbl.p.forEach(p=>allP.add(p));rows.push({name:c.name,id:c.id,item:it});break}});
+  const periods=[...allP].sort();
+  const mBtn=(id,label)=>`<button class="${cmpMode===id?'bp':'bo'}" onclick="cmpMode='${id}';rCmp()">${label}</button>`;
+  const vBtn=(id,label)=>`<button class="${cmpView===id?'bp':'bo'}" onclick="cmpView='${id}';rCmp()">${label}</button>`;
+  let h=`<div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+    <span style="font-weight:700;font-size:14px">銘柄横比較</span>
+    <select onchange="cmpRole=this.value;rCmp()" style="width:auto;padding:5px 8px">${ro}</select>
+    <div style="display:flex;gap:2px">${mBtn('abs','実数値')}${mBtn('growth','成長率')}${mBtn('index','指数(100)')}</div>
+    <div style="display:flex;gap:2px;margin-left:auto">${vBtn('tbl','テーブル')}${vBtn('chart','チャート')}</div>
+  </div>`;
+  if(!rows.length){const rn=ar.find(r=>r.id===cmpRole);h+=`<div style="color:var(--td)">「${rn?rn.name:cmpRole}」がタグ付けされた企業がありません。</div>`;document.getElementById('cpc').innerHTML=h;return}
 
+  if(cmpView==='chart'){
+    h+=`<div id="cmp-chart" style="width:100%;height:calc(100vh - 160px)"></div>`;
+    h+=`<div id="cmp-legend" style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:11px"></div>`;
+    document.getElementById('cpc').innerHTML=h;
+    renderChart(rows,periods);return;
+  }
+
+  // Table view
+  h+=`<div style="overflow:auto"><table class="cmp-tbl"><thead><tr><th>企業</th>`;
+  if(cmpMode==='abs')periods.forEach(p=>h+=`<th>${esc(p)}</th>`);
+  else if(cmpMode==='growth')periods.forEach((p,i)=>{if(i>0)h+=`<th>${esc(periods[i-1])}→${esc(p)}</th>`});
+  else periods.forEach(p=>h+=`<th>${esc(p)}</th>`);
+  h+=`</tr></thead><tbody>`;
+  rows.forEach(r=>{
+    h+=`<tr><td style="cursor:pointer" onclick="selC('${r.id}')">${esc(r.name)}</td>`;
+    if(cmpMode==='abs'){periods.forEach(p=>{h+=`<td>${esc(r.item.v[p]||'')}</td>`})}
+    else if(cmpMode==='growth'){periods.forEach((p,i)=>{if(i===0)return;const cur=pNum(r.item.v[p]),prev=pNum(r.item.v[periods[i-1]]);if(cur!==null&&prev!==null&&prev!==0){const g=((cur-prev)/Math.abs(prev)*100).toFixed(1);h+=`<td class="${parseFloat(g)>=0?'pos':'neg'}">${parseFloat(g)>=0?'+':''}${g}%</td>`}else h+=`<td>-</td>`})}
+    else{const base=pNum(r.item.v[periods[0]]);periods.forEach(p=>{const v=pNum(r.item.v[p]);if(v!==null&&base!==null&&base!==0){h+=`<td>${(v/base*100).toFixed(1)}</td>`}else h+=`<td>-</td>`})}
+    h+=`</tr>`});
+  h+=`</tbody></table></div>`;
+  document.getElementById('cpc').innerHTML=h;
+}
+
+function renderChart(rows,periods){
+  const container=document.getElementById('cmp-chart');
+  if(!container)return;
+  const W=container.clientWidth,H=container.clientHeight;
+  const margin={top:20,right:30,bottom:50,left:60};
+  const w=W-margin.left-margin.right,h=H-margin.top-margin.bottom;
+
+  // Build series data
+  const series=rows.map((r,ri)=>{
+    const pts=[];
+    const baseVal=pNum(r.item.v[periods[0]]);
+    periods.forEach((p,pi)=>{
+      const raw=pNum(r.item.v[p]);
+      if(raw===null)return;
+      let y;
+      if(cmpMode==='abs')y=raw;
+      else if(cmpMode==='growth'){
+        if(pi===0){y=0}else{const prev=pNum(r.item.v[periods[pi-1]]);y=(prev!==null&&prev!==0)?((raw-prev)/Math.abs(prev)*100):null}
+      }else{y=(baseVal!==null&&baseVal!==0)?(raw/baseVal*100):null}
+      if(y!==null)pts.push({x:pi,y,period:p,raw,name:r.name});
+    });
+    return{name:r.name,id:r.id,color:CCOL[ri%CCOL.length],pts};
+  }).filter(s=>s.pts.length>0);
+
+  if(!series.length)return;
+
+  const allY=series.flatMap(s=>s.pts.map(p=>p.y));
+  const yMin=Math.min(...allY),yMax=Math.max(...allY);
+  const yPad=(yMax-yMin)*0.1||10;
+
+  const xScale=d3.scaleLinear().domain([0,periods.length-1]).range([0,w]);
+  const yScale=d3.scaleLinear().domain([yMin-yPad,yMax+yPad]).range([h,0]);
+
+  const svg=d3.select('#cmp-chart').append('svg').attr('width',W).attr('height',H);
+  const g=svg.append('g').attr('transform',`translate(${margin.left},${margin.top})`);
+
+  // Grid lines
+  g.selectAll('.grid').data(yScale.ticks(6)).join('line').attr('x1',0).attr('x2',w).attr('y1',d=>yScale(d)).attr('y2',d=>yScale(d)).attr('stroke','#1a2740').attr('stroke-dasharray','3,3');
+
+  // X axis
+  const xAxis=g.append('g').attr('transform',`translate(0,${h})`);
+  periods.forEach((p,i)=>{
+    xAxis.append('text').attr('x',xScale(i)).attr('y',25).attr('text-anchor','middle').attr('fill','#5a7490').attr('font-size',10).attr('font-family','var(--f)').text(p);
+    xAxis.append('line').attr('x1',xScale(i)).attr('x2',xScale(i)).attr('y1',0).attr('y2',5).attr('stroke','#5a7490');
+  });
+  xAxis.append('line').attr('x1',0).attr('x2',w).attr('y1',0).attr('y2',0).attr('stroke','#1a2740');
+
+  // Y axis
+  const yAxis=g.append('g');
+  yScale.ticks(6).forEach(v=>{yAxis.append('text').attr('x',-10).attr('y',yScale(v)).attr('text-anchor','end').attr('dominant-baseline','middle').attr('fill','#5a7490').attr('font-size',10).attr('font-family','var(--f)').text(cmpMode==='growth'?v.toFixed(0)+'%':cmpMode==='index'?v.toFixed(0):v.toLocaleString())});
+  yAxis.append('line').attr('x1',0).attr('x2',0).attr('y1',0).attr('y2',h).attr('stroke','#1a2740');
+
+  // Index baseline at 100
+  if(cmpMode==='index'&&yMin<=100&&yMax>=100){
+    g.append('line').attr('x1',0).attr('x2',w).attr('y1',yScale(100)).attr('y2',yScale(100)).attr('stroke','#5a7490').attr('stroke-width',1).attr('stroke-dasharray','6,4');
+    g.append('text').attr('x',w+5).attr('y',yScale(100)).attr('fill','#5a7490').attr('font-size',9).attr('dominant-baseline','middle').text('100');
+  }
+  // Growth baseline at 0
+  if(cmpMode==='growth'&&yMin<=0&&yMax>=0){
+    g.append('line').attr('x1',0).attr('x2',w).attr('y1',yScale(0)).attr('y2',yScale(0)).attr('stroke','#5a7490').attr('stroke-width',1).attr('stroke-dasharray','6,4');
+  }
+
+  // Lines and dots
+  const line=d3.line().x(d=>xScale(d.x)).y(d=>yScale(d.y)).curve(d3.curveMonotoneX);
+  series.forEach(s=>{
+    g.append('path').datum(s.pts).attr('d',line).attr('fill','none').attr('stroke',s.color).attr('stroke-width',2.5).attr('stroke-opacity',0.85);
+    g.selectAll('.dot-'+s.id).data(s.pts).join('circle').attr('cx',d=>xScale(d.x)).attr('cy',d=>yScale(d.y)).attr('r',4).attr('fill',s.color).attr('stroke','var(--bg)').attr('stroke-width',1.5)
+      .on('mouseover',function(ev,d){
+        d3.select(this).attr('r',6);
+        const tip=document.createElement('div');tip.className='chart-tip';
+        let val=cmpMode==='growth'?d.y.toFixed(1)+'%':cmpMode==='index'?d.y.toFixed(1):d.raw.toLocaleString();
+        tip.innerHTML=`<span style="color:${s.color}">${esc(d.name)}</span><br>${d.period}: <b>${val}</b>`;
+        tip.style.left=(ev.pageX+12)+'px';tip.style.top=(ev.pageY-30)+'px';
+        document.body.appendChild(tip);tip.id='ctip';
+      })
+      .on('mouseout',function(){d3.select(this).attr('r',4);const t=document.getElementById('ctip');if(t)t.remove()});
+  });
+
+  // Legend
+  document.getElementById('cmp-legend').innerHTML=series.map(s=>`<div style="display:flex;align-items:center;gap:5px;cursor:pointer" onclick="selC('${s.id}')"><div style="width:12px;height:3px;background:${s.color};border-radius:2px"></div><span>${esc(s.name)}</span></div>`).join('');
+}
+
+// ═══ DETAIL ═══
 function selC(id){sel=id;dTab='ov';fti=0;rDet(id);if(cv==='list')rL();if(cv==='graph')hlN(id)}
 function clDet(){sel=null;document.getElementById('det').style.display='none';if(cv==='list')rL();else if(cv==='graph')rGr();else rCmp()}
 function confirmDel(id){if(confirm('この企業を削除しますか？')){D.c=D.c.filter(c=>c.id!==id);D.r=D.r.filter(r=>r.from!==id&&r.to!==id);clDet();ref()}}
@@ -178,37 +270,12 @@ function rDet(id){const c=D.c.find(x=>x.id===id);if(!c){document.getElementById(
 
 function detOv(c){const rels=D.r.filter(r=>r.from===c.id||r.to===c.id);const pr=(c.products||[]).map(p=>`<span class="tag" style="background:var(--ad);color:var(--ac)">${esc(p)}</span>`).join('');const rh=rels.map(r=>{const oid=r.from===c.id?r.to:r.from;const o=D.c.find(x=>x.id===oid);if(!o)return'';const rt=gRT(r.type);const dir=r.from===c.id?'→':'←';return`<div class="ri"><span class="rt" style="background:${rt.color}22;color:${rt.color}">${rt.name}</span><span>${dir}</span><span class="rn" onclick="selC('${o.id}')">${esc(o.name)}</span><span style="color:var(--tm);font-size:9px;margin-left:auto">線${TH[r.thickness||0]}</span>${r.notes?'<span style="color:var(--tm);font-size:9px" title="'+esc(r.notes)+'">📝</span>':''}<button class="bg" style="font-size:9px;color:var(--tm)" onclick="confirmDelR('${r.id}')">✕</button></div>`}).join('');return`${rels.length?`<div class="sec"><div class="sec-t">関係 (${rels.length})</div>${rh}</div>`:'<div style="color:var(--td);margin-bottom:16px">関係なし</div>'}${pr?`<div class="sec"><div class="sec-t">製品・サービス</div><div>${pr}</div></div>`:''}`}
 
-function detFin(c){
-  ensureFins(c);const tabs=getFtabs();if(fti>=tabs.length)fti=0;
-  const ti=fti;const tbl=c.fins[ti];
-  const csvId='csv-'+c.id+'-'+ti;
-  let stH='<div class="stabs">';
-  tabs.forEach((t,i)=>{stH+=`<button class="${i===ti?'on':''}" onclick="fti=${i};rDet('${c.id}')">${esc(t)}</button>`});
-  stH+=`<button class="bg" onclick="addFinTab()" style="font-size:10px;padding:4px 6px">+</button>`;
-  if(tabs.length>1)stH+=`<button class="bg" onclick="delFinTab(${ti},'${c.id}')" style="font-size:9px;color:var(--tm);padding:4px 6px">この表を削除</button>`;
-  stH+='</div>';
-
-  const csvRId='csvr-'+c.id+'-'+ti;const csvBtn=`<button class="bp" onclick="document.getElementById('${csvId}').click()">CSV読込（追加）</button><input type="file" id="${csvId}" accept=".csv,.tsv,.txt" style="display:none" onchange="impCSV('${c.id}',${ti},event)"><button class="bdn" onclick="document.getElementById('${csvRId}').click()">CSV上書き</button><input type="file" id="${csvRId}" accept=".csv,.tsv,.txt" style="display:none" onchange="impCSVR('${c.id}',${ti},event)">`;
-
-  if(!tbl.p.length&&!tbl.it.length)return stH+`<div style="color:var(--td);margin-bottom:12px">${esc(tabs[ti])}データなし</div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="bo" onclick="addFP('${c.id}',${ti})">+ 期間</button><button class="bg" onclick="addFPB('${c.id}',${ti})">一括追加</button>${csvBtn}</div>`;
-
-  const ar=allRoles();
-  let h=stH+`<div class="fin-wrap"><table class="fin-tbl"><thead><tr><th>項目</th><th>役割タグ</th>`;
-  tbl.p.forEach((p,i)=>h+=`<th>${esc(p)} <span style="cursor:pointer;opacity:.5" onclick="delFP('${c.id}',${ti},${i})">✕</span></th>`);
-  h+=`</tr></thead><tbody>`;
-  tbl.it.forEach((it,ii)=>{
-    const ro=ar.map(r=>`<option value="${r.id}" ${(it.role||'')===r.id?'selected':''}>${r.name}</option>`).join('');
-    h+=`<tr><td><input class="iname" value="${esc(it.n)}" onchange="uFN('${c.id}',${ti},${ii},this.value)"></td><td><select class="rsel" onchange="uFR('${c.id}',${ti},${ii},this.value)">${ro}</select></td>`;
-    tbl.p.forEach(p=>{h+=`<td><input value="${esc(it.v[p]||'')}" onchange="uFV('${c.id}',${ti},${ii},'${esc(p)}',this.value)"></td>`});
-    h+=`<td style="border:none;min-width:30px"><button class="bg" style="font-size:9px;color:var(--tm)" onclick="delFI('${c.id}',${ti},${ii})">✕</button></td></tr>`});
-  h+=`</tbody></table></div>`;
-  return h+`<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="bo" onclick="addFP('${c.id}',${ti})">+ 期間</button><button class="bo" onclick="addFI('${c.id}',${ti})">+ 項目</button><button class="bg" onclick="addFIB('${c.id}',${ti})">PL一括</button><button class="bg" onclick="addFPB('${c.id}',${ti})">期間一括</button>${csvBtn}</div>`}
+function detFin(c){ensureFins(c);const tabs=getFtabs();if(fti>=tabs.length)fti=0;const ti=fti;const tbl=c.fins[ti];const csvId='csv-'+c.id+'-'+ti;let stH='<div class="stabs">';tabs.forEach((t,i)=>{stH+=`<button class="${i===ti?'on':''}" onclick="fti=${i};rDet('${c.id}')">${esc(t)}</button>`});stH+=`<button class="bg" onclick="addFinTab()" style="font-size:10px;padding:4px 6px">+</button>`;if(tabs.length>1)stH+=`<button class="bg" onclick="delFinTab(${ti},'${c.id}')" style="font-size:9px;color:var(--tm);padding:4px 6px">この表を削除</button>`;stH+='</div>';const csvRId='csvr-'+c.id+'-'+ti;const csvBtn=`<button class="bp" onclick="document.getElementById('${csvId}').click()">CSV読込（追加）</button><input type="file" id="${csvId}" accept=".csv,.tsv,.txt" style="display:none" onchange="impCSV('${c.id}',${ti},event)"><button class="bdn" onclick="document.getElementById('${csvRId}').click()">CSV上書き</button><input type="file" id="${csvRId}" accept=".csv,.tsv,.txt" style="display:none" onchange="impCSVR('${c.id}',${ti},event)">`;if(!tbl.p.length&&!tbl.it.length)return stH+`<div style="color:var(--td);margin-bottom:12px">${esc(tabs[ti])}データなし</div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="bo" onclick="addFP('${c.id}',${ti})">+ 期間</button><button class="bg" onclick="addFPB('${c.id}',${ti})">一括追加</button>${csvBtn}</div>`;const ar=allRoles();let h=stH+`<div class="fin-wrap"><table class="fin-tbl"><thead><tr><th>項目</th><th>役割タグ</th>`;tbl.p.forEach((p,i)=>h+=`<th>${esc(p)} <span style="cursor:pointer;opacity:.5" onclick="delFP('${c.id}',${ti},${i})">✕</span></th>`);h+=`</tr></thead><tbody>`;tbl.it.forEach((it,ii)=>{const ro=ar.map(r=>`<option value="${r.id}" ${(it.role||'')===r.id?'selected':''}>${r.name}</option>`).join('');h+=`<tr><td><input class="iname" value="${esc(it.n)}" onchange="uFN('${c.id}',${ti},${ii},this.value)"></td><td><select class="rsel" onchange="uFR('${c.id}',${ti},${ii},this.value)">${ro}</select></td>`;tbl.p.forEach(p=>{h+=`<td><input value="${esc(it.v[p]||'')}" onchange="uFV('${c.id}',${ti},${ii},'${esc(p)}',this.value)"></td>`});h+=`<td style="border:none;min-width:30px"><button class="bg" style="font-size:9px;color:var(--tm)" onclick="delFI('${c.id}',${ti},${ii})">✕</button></td></tr>`});h+=`</tbody></table></div>`;return h+`<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="bo" onclick="addFP('${c.id}',${ti})">+ 期間</button><button class="bo" onclick="addFI('${c.id}',${ti})">+ 項目</button><button class="bg" onclick="addFIB('${c.id}',${ti})">PL一括</button><button class="bg" onclick="addFPB('${c.id}',${ti})">期間一括</button>${csvBtn}</div>`}
 
 function detNote(c){return`<div class="sec"><div class="sec-t">取材メモ</div><textarea onchange="uN('${c.id}','research',this.value)">${esc(c.research||'')}</textarea></div><div class="sec"><div class="sec-t">その他メモ</div><textarea onchange="uN('${c.id}','notes',this.value)">${esc(c.notes||'')}</textarea></div>`}
 
-function addFinTab(){const n=prompt('新しいテーブル名（例: セグメント別, 週次KPI）');if(!n)return;if(!D.ftabs)D.ftabs=[...DFTABS];D.ftabs.push(n);D.c.forEach(c=>{if(c.fins)c.fins.push({p:[],it:[]})});save();if(sel)rDet(sel)}
+function addFinTab(){const n=prompt('新しいテーブル名');if(!n)return;if(!D.ftabs)D.ftabs=[...DFTABS];D.ftabs.push(n);D.c.forEach(c=>{if(c.fins)c.fins.push({p:[],it:[]})});save();if(sel)rDet(sel)}
 function delFinTab(ti,cid){const tabs=getFtabs();if(!confirm('「'+tabs[ti]+'」のデータをこの企業から削除しますか？'))return;const c=D.c.find(x=>x.id===cid);if(c&&c.fins&&c.fins[ti])c.fins[ti]={p:[],it:[]};save();rDet(cid)}
-
 function addFP(cid,ti){const p=prompt('期間名');if(!p)return;const c=D.c.find(x=>x.id===cid);ensureFins(c);if(c.fins[ti].p.includes(p))return;c.fins[ti].p.push(p);save();rDet(cid)}
 function addFPB(cid,ti){const p=prompt('カンマ区切り\n例: 2024Q1,2024Q2,2024Q3,2024Q4');if(!p)return;const c=D.c.find(x=>x.id===cid);ensureFins(c);p.split(',').map(s=>s.trim()).filter(Boolean).forEach(s=>{if(!c.fins[ti].p.includes(s))c.fins[ti].p.push(s)});save();rDet(cid)}
 function addFI(cid,ti){const n=prompt('項目名');if(!n)return;const c=D.c.find(x=>x.id===cid);ensureFins(c);c.fins[ti].it.push({n,v:{},role:AUTOROLE[n]||''});save();rDet(cid)}
@@ -232,38 +299,16 @@ function openRM(){document.getElementById('rmb').innerHTML=`<div class="ml-t">�
 function saveR(){const f=document.getElementById('rf').value,t=document.getElementById('rto').value,ty=document.getElementById('rty').value;const th=parseInt(document.getElementById('rth').value)||0,n=document.getElementById('rnote').value.trim();if(!f||!t||f===t)return alert('異なる2企業を選択');if(D.r.find(r=>r.from===f&&r.to===t&&r.type===ty))return alert('同じ関係が存在');D.r.push({id:uid(),from:f,to:t,type:ty,thickness:th,notes:n});document.getElementById('rm').style.display='none';ref()}
 
 function openSM(){rSM();document.getElementById('sm').style.display='flex'}
-function rSM(){
-  let h=`<div class="ml-t">⚙ 設定</div><div class="sl">ラベル管理</div><div style="margin-bottom:8px">${D.lb.map((l,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--bd)"><span class="tag" style="background:${lCol(l)}22;color:${lCol(l)}">${esc(l)}</span><button class="bg" style="margin-left:auto;font-size:9px;color:var(--tm)" onclick="D.lb.splice(${i},1);save();rSM()">削除</button></div>`).join('')||'<span style="color:var(--td)">なし</span>'}</div><div style="display:flex;gap:6px;margin-bottom:16px"><input id="nl" placeholder="新しいラベル名"><button class="bo" onclick="const v=document.getElementById('nl').value.trim();if(v&&!D.lb.includes(v)){D.lb.push(v);save();rSM()}">追加</button></div>`;
-  h+=`<div class="sl">関係タイプ管理</div><div style="margin-bottom:8px">${D.rt.map((t,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--bd)"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:${t.color}"></span><span style="font-size:11px">${esc(t.name)}</span>${i>=6?`<button class="bg" style="margin-left:auto;font-size:9px;color:var(--tm)" onclick="D.rt.splice(${i},1);save();rSM()">削除</button>`:'<span style="margin-left:auto;font-size:9px;color:var(--tm)">既定</span>'}</div>`).join('')}</div><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:16px"><input id="nrn" placeholder="タイプ名" style="flex:1;min-width:80px"><input id="nrc" type="color" value="#fb923c" style="width:36px;padding:2px"><button class="bo" onclick="const n=document.getElementById('nrn').value.trim();if(!n)return;D.rt.push({id:'c_'+uid(),name:n,color:document.getElementById('nrc').value,bi:0});save();rSM()">追加</button></div>`;
-  h+=`<div class="sl">役割タグ管理</div><div style="margin-bottom:8px">${DROLES.map(r=>`<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--bd)"><span style="font-size:11px">${esc(r.name)}</span><span style="margin-left:auto;font-size:9px;color:var(--tm)">既定</span></div>`).join('')}${(D.roles||[]).map((r,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--bd)"><span style="font-size:11px">${esc(r.name)}</span><button class="bg" style="margin-left:auto;font-size:9px;color:var(--tm)" onclick="delRole(${i})">削除</button></div>`).join('')}</div><div style="display:flex;gap:6px"><input id="nrl" placeholder="新しい役割タグ名（例: ARPU, FCF）"><button class="bo" onclick="addRole()">追加</button></div>`;
-  document.getElementById('smb').innerHTML=h}
+function rSM(){let h=`<div class="ml-t">⚙ 設定</div><div class="sl">ラベル管理</div><div style="margin-bottom:8px">${D.lb.map((l,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--bd)"><span class="tag" style="background:${lCol(l)}22;color:${lCol(l)}">${esc(l)}</span><button class="bg" style="margin-left:auto;font-size:9px;color:var(--tm)" onclick="D.lb.splice(${i},1);save();rSM()">削除</button></div>`).join('')||'<span style="color:var(--td)">なし</span>'}</div><div style="display:flex;gap:6px;margin-bottom:16px"><input id="nl" placeholder="新しいラベル名"><button class="bo" onclick="const v=document.getElementById('nl').value.trim();if(v&&!D.lb.includes(v)){D.lb.push(v);save();rSM()}">追加</button></div>`;h+=`<div class="sl">関係タイプ管理</div><div style="margin-bottom:8px">${D.rt.map((t,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--bd)"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:${t.color}"></span><span style="font-size:11px">${esc(t.name)}</span>${i>=6?`<button class="bg" style="margin-left:auto;font-size:9px;color:var(--tm)" onclick="D.rt.splice(${i},1);save();rSM()">削除</button>`:'<span style="margin-left:auto;font-size:9px;color:var(--tm)">既定</span>'}</div>`).join('')}</div><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:16px"><input id="nrn" placeholder="タイプ名" style="flex:1;min-width:80px"><input id="nrc" type="color" value="#fb923c" style="width:36px;padding:2px"><button class="bo" onclick="const n=document.getElementById('nrn').value.trim();if(!n)return;D.rt.push({id:'c_'+uid(),name:n,color:document.getElementById('nrc').value,bi:0});save();rSM()">追加</button></div>`;h+=`<div class="sl">役割タグ管理</div><div style="margin-bottom:8px">${DROLES.map(r=>`<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--bd)"><span style="font-size:11px">${esc(r.name)}</span><span style="margin-left:auto;font-size:9px;color:var(--tm)">既定</span></div>`).join('')}${(D.roles||[]).map((r,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--bd)"><span style="font-size:11px">${esc(r.name)}</span><button class="bg" style="margin-left:auto;font-size:9px;color:var(--tm)" onclick="delRole(${i})">削除</button></div>`).join('')}</div><div style="display:flex;gap:6px"><input id="nrl" placeholder="新しい役割タグ名（例: ARPU, FCF）"><button class="bo" onclick="addRole()">追加</button></div>`;document.getElementById('smb').innerHTML=h}
 function addRole(){const n=document.getElementById('nrl').value.trim();if(!n)return;if(!D.roles)D.roles=[];D.roles.push({id:'cr_'+uid(),name:n});save();rSM()}
 function delRole(i){const rid=D.roles[i].id;D.roles.splice(i,1);D.c.forEach(c=>{if(c.fins)c.fins.forEach(t=>t.it.forEach(it=>{if(it.role===rid)it.role=''}))});save();rSM()}
 
-function rGr(){
-  const svg=d3.select('#gs');svg.selectAll('*').remove();document.getElementById('ge').style.display=D.c.length?'none':'flex';
-  const ms=document.getElementById('nmsel');const curV=ms.value||'';const ar=allRoles().filter(r=>r.id);ms.innerHTML='<option value="">均一</option>'+ar.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');ms.value=curV;const sizeRole=ms.value;
-  if(!D.c.length)return;const ct=document.getElementById('gc'),W=ct.clientWidth,H=ct.clientHeight,g=svg.append('g');zO=d3.zoom().scaleExtent([.15,5]).on('zoom',e=>g.attr('transform',e.transform));svg.call(zO);const defs=svg.append('defs');
-  let vals=[];if(sizeRole)D.c.forEach(c=>{const v=getMetricVal(c,sizeRole);if(v!==null&&v>0)vals.push(v)});const maxV=vals.length?Math.max(...vals):0;const minR=20,maxR=50;
-  const nodes=D.c.map(c=>{let r=24;if(sizeRole&&maxV>0){const v=getMetricVal(c,sizeRole);r=v!==null&&v>0?minR+(v/maxV)*(maxR-minR):minR}return{id:c.id,name:c.name,lb:c.labels||[],r}});
-  const links=D.r.map(r=>({source:r.from,target:r.to,type:r.type,th:r.thickness||0})).filter(l=>nodes.find(n=>n.id===l.source)&&nodes.find(n=>n.id===l.target));
-  sim=d3.forceSimulation(nodes).force('link',d3.forceLink(links).id(d=>d.id).distance(160)).force('charge',d3.forceManyBody().strength(-500)).force('center',d3.forceCenter(W/2,H/2)).force('collision',d3.forceCollide(d=>d.r+10));
-  links.forEach((l,i)=>{const rt=gRT(l.type);const fid='af'+i;defs.append('marker').attr('id',fid).attr('viewBox','0 0 12 8').attr('refX',12).attr('refY',4).attr('markerWidth',10).attr('markerHeight',8).attr('orient','auto').append('path').attr('d','M0,0 L12,4 L0,8Z').attr('fill',rt.color);l._fid=fid});
-  const link=g.selectAll('.lk').data(links).join('line').attr('stroke',d=>gRT(d.type).color).attr('stroke-width',d=>TH[d.th]||1.5).attr('stroke-opacity',.5).attr('marker-end',d=>'url(#'+d._fid+')');
-  const ll=g.selectAll('.ll').data(links).join('text').text(d=>gRT(d.type).name).attr('fill',d=>gRT(d.type).color).attr('font-size',9).attr('font-family','var(--f)').attr('text-anchor','middle').attr('dy',d=>-(TH[d.th]/2+6)).attr('opacity',.7);
-  const node=g.selectAll('.nd').data(nodes).join('g').attr('cursor','pointer').call(d3.drag().on('start',(e,d)=>{if(!e.active)sim.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y}).on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y}).on('end',(e,d)=>{if(!e.active)sim.alphaTarget(0);d.fx=null;d.fy=null})).on('click',(e,d)=>selC(d.id));
-  node.append('circle').attr('r',d=>d.r).attr('fill',d=>d.id===sel?'rgba(0,229,200,.12)':'var(--s1)').attr('stroke',d=>d.id===sel?'var(--ac)':'var(--bd)').attr('stroke-width',d=>d.id===sel?2.5:1.2);
-  node.each(function(d){(d.lb||[]).slice(0,4).forEach((l,i)=>{d3.select(this).append('circle').attr('r',3).attr('cx',(d.r*.6)+i*8).attr('cy',-(d.r*.8)).attr('fill',lCol(l))})});
-  node.append('text').text(d=>d.name.length>15?d.name.slice(0,14)+'…':d.name).attr('fill','var(--txt)').attr('font-size',d=>Math.max(9,Math.min(12,d.r/2.5))).attr('font-family','var(--f)').attr('text-anchor','middle').attr('dy',4);
-  node.append('title').text(d=>d.name);
-  sim.on('tick',()=>{link.each(function(d){const dx=d.target.x-d.source.x,dy=d.target.y-d.source.y,dist=Math.sqrt(dx*dx+dy*dy)||1,sr=d.source.r||24,tr=d.target.r||24;d3.select(this).attr('x1',d.source.x+dx/dist*sr).attr('y1',d.source.y+dy/dist*sr).attr('x2',d.target.x-dx/dist*tr).attr('y2',d.target.y-dy/dist*tr)});ll.attr('x',d=>(d.source.x+d.target.x)/2).attr('y',d=>(d.source.y+d.target.y)/2);node.attr('transform',d=>`translate(${d.x},${d.y})`)});
-  document.getElementById('gl').innerHTML=D.rt.map(t=>`<div class="li"><div class="ld" style="background:${t.color}"></div>${t.name}</div>`).join('')}
-
+function rGr(){const svg=d3.select('#gs');svg.selectAll('*').remove();document.getElementById('ge').style.display=D.c.length?'none':'flex';const ms=document.getElementById('nmsel');const curV=ms.value||'';const ar=allRoles().filter(r=>r.id);ms.innerHTML='<option value="">均一</option>'+ar.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');ms.value=curV;const sizeRole=ms.value;if(!D.c.length)return;const ct=document.getElementById('gc'),W=ct.clientWidth,H=ct.clientHeight,g=svg.append('g');zO=d3.zoom().scaleExtent([.15,5]).on('zoom',e=>g.attr('transform',e.transform));svg.call(zO);const defs=svg.append('defs');let vals=[];if(sizeRole)D.c.forEach(c=>{const v=getMetricVal(c,sizeRole);if(v!==null&&v>0)vals.push(v)});const maxV=vals.length?Math.max(...vals):0;const minR=20,maxR=50;const nodes=D.c.map(c=>{let r=24;if(sizeRole&&maxV>0){const v=getMetricVal(c,sizeRole);r=v!==null&&v>0?minR+(v/maxV)*(maxR-minR):minR}return{id:c.id,name:c.name,lb:c.labels||[],r}});const links=D.r.map(r=>({source:r.from,target:r.to,type:r.type,th:r.thickness||0})).filter(l=>nodes.find(n=>n.id===l.source)&&nodes.find(n=>n.id===l.target));sim=d3.forceSimulation(nodes).force('link',d3.forceLink(links).id(d=>d.id).distance(160)).force('charge',d3.forceManyBody().strength(-500)).force('center',d3.forceCenter(W/2,H/2)).force('collision',d3.forceCollide(d=>d.r+10));links.forEach((l,i)=>{const rt=gRT(l.type);const fid='af'+i;defs.append('marker').attr('id',fid).attr('viewBox','0 0 12 8').attr('refX',12).attr('refY',4).attr('markerWidth',10).attr('markerHeight',8).attr('orient','auto').append('path').attr('d','M0,0 L12,4 L0,8Z').attr('fill',rt.color);l._fid=fid});const link=g.selectAll('.lk').data(links).join('line').attr('stroke',d=>gRT(d.type).color).attr('stroke-width',d=>TH[d.th]||1.5).attr('stroke-opacity',.5).attr('marker-end',d=>'url(#'+d._fid+')');const ll=g.selectAll('.ll').data(links).join('text').text(d=>gRT(d.type).name).attr('fill',d=>gRT(d.type).color).attr('font-size',9).attr('font-family','var(--f)').attr('text-anchor','middle').attr('dy',d=>-(TH[d.th]/2+6)).attr('opacity',.7);const node=g.selectAll('.nd').data(nodes).join('g').attr('cursor','pointer').call(d3.drag().on('start',(e,d)=>{if(!e.active)sim.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y}).on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y}).on('end',(e,d)=>{if(!e.active)sim.alphaTarget(0);d.fx=null;d.fy=null})).on('click',(e,d)=>selC(d.id));node.append('circle').attr('r',d=>d.r).attr('fill',d=>d.id===sel?'rgba(0,229,200,.12)':'var(--s1)').attr('stroke',d=>d.id===sel?'var(--ac)':'var(--bd)').attr('stroke-width',d=>d.id===sel?2.5:1.2);node.each(function(d){(d.lb||[]).slice(0,4).forEach((l,i)=>{d3.select(this).append('circle').attr('r',3).attr('cx',(d.r*.6)+i*8).attr('cy',-(d.r*.8)).attr('fill',lCol(l))})});node.append('text').text(d=>d.name.length>15?d.name.slice(0,14)+'…':d.name).attr('fill','var(--txt)').attr('font-size',d=>Math.max(9,Math.min(12,d.r/2.5))).attr('font-family','var(--f)').attr('text-anchor','middle').attr('dy',4);node.append('title').text(d=>d.name);sim.on('tick',()=>{link.each(function(d){const dx=d.target.x-d.source.x,dy=d.target.y-d.source.y,dist=Math.sqrt(dx*dx+dy*dy)||1,sr=d.source.r||24,tr=d.target.r||24;d3.select(this).attr('x1',d.source.x+dx/dist*sr).attr('y1',d.source.y+dy/dist*sr).attr('x2',d.target.x-dx/dist*tr).attr('y2',d.target.y-dy/dist*tr)});ll.attr('x',d=>(d.source.x+d.target.x)/2).attr('y',d=>(d.source.y+d.target.y)/2);node.attr('transform',d=>`translate(${d.x},${d.y})`)});document.getElementById('gl').innerHTML=D.rt.map(t=>`<div class="li"><div class="ld" style="background:${t.color}"></div>${t.name}</div>`).join('')}
 function hlN(id){d3.selectAll('#gs .nd circle:first-child').attr('fill',d=>d.id===id?'rgba(0,229,200,.12)':'var(--s1)').attr('stroke',d=>d.id===id?'var(--ac)':'var(--bd)').attr('stroke-width',d=>d.id===id?2.5:1.2)}
 function zG(f){d3.select('#gs').transition().duration(300).call(zO.scaleBy,f)}
 function rG0(){d3.select('#gs').transition().duration(500).call(zO.transform,d3.zoomIdentity)}
 
-(async()=>{await loadDB();if(!D.rt.length)D.rt=[...DRT];if(!D.roles)D.roles=[];if(!D.ftabs)D.ftabs=[...DFTABS];D.c.forEach(c=>ensureFins(c));save();rGr();window.addEventListener('resize',()=>{if(cv==='graph')rGr()})})();
+(async()=>{await loadDB();if(!D.rt.length)D.rt=[...DRT];if(!D.roles)D.roles=[];if(!D.ftabs)D.ftabs=[...DFTABS];D.c.forEach(c=>ensureFins(c));save();rGr();window.addEventListener('resize',()=>{if(cv==='graph')rGr();if(cv==='compare')rCmp()})})();
 </script>
 </body>
 </html>
