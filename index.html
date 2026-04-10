@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Invest Hub — 投資リサーチ統合ツール</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#060a10;--surface:#0d1420;--surface2:#131d2e;--border:#1a2740;--border-hover:#264060;--accent:#00e5c8;--accent-dim:rgba(0,229,200,0.12);--accent-glow:rgba(0,229,200,0.25);--red:#ff4d6a;--amber:#ffb020;--green:#00e5c8;--blue:#3b9eff;--purple:#a78bfa;--pink:#f472b6;--text:#d8e3ef;--text-dim:#5a7490;--text-muted:#3a5068;--font:'IBM Plex Mono','Noto Sans JP',monospace;--radius:6px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:12px;overflow:hidden;height:100vh}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+input,select,textarea{font-family:var(--font);font-size:12px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:var(--radius);outline:none;width:100%;transition:border-color .2s}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+textarea{resize:vertical;min-height:60px}select{cursor:pointer}
+button{font-family:var(--font);font-size:11px;cursor:pointer;border:none;border-radius:var(--radius);padding:6px 14px;transition:all .15s}
+.btn-p{background:var(--accent);color:var(--bg);font-weight:700}.btn-p:hover{box-shadow:0 0 12px var(--accent-glow)}
+.btn-o{background:transparent;color:var(--accent);border:1px solid var(--border)}.btn-o:hover{border-color:var(--accent)}
+.btn-g{background:transparent;color:var(--text-dim);border:none;padding:4px 8px}.btn-g:hover{color:var(--text)}
+.btn-d{background:transparent;color:var(--red);border:1px solid var(--border)}.btn-d:hover{border-color:var(--red)}
+label{display:block;color:var(--text-dim);font-size:10px;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}
+.fld{margin-bottom:10px}
+#app{display:flex;flex-direction:column;height:100vh}
+#hdr{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:8px}.logo-i{color:var(--accent);font-size:16px}.logo-t{font-weight:700;font-size:14px;letter-spacing:2px}.logo-c{color:var(--text-dim);font-size:10px}
+.nav{display:flex;gap:2px;margin-left:auto}.nav button{padding:5px 12px;font-size:11px;border-radius:4px}.nav button.on{background:var(--accent-dim);color:var(--accent)}
+#main{display:flex;flex:1;overflow:hidden}
+#gc{flex:1;position:relative;overflow:hidden}#gc svg{width:100%;height:100%}
+#ge{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:var(--text-dim)}
+#ge .ic{font-size:40px;color:var(--accent);opacity:.4}
+#lc{flex:1;overflow-y:auto;padding:16px;display:none}
+#ls{max-width:300px;margin-bottom:16px}
+#lg{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.cd{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;cursor:pointer;transition:all .15s}
+.cd:hover{border-color:var(--border-hover);background:var(--surface2)}.cd.sel{border-color:var(--accent)}
+.cd-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}.cd-n{font-weight:700;font-size:13px}
+.cd-m{display:flex;gap:10px;color:var(--text-dim);font-size:10px;flex-wrap:wrap}
+.bdg{padding:2px 8px;border-radius:3px;font-size:10px;font-weight:600}
+#det{width:360px;border-left:1px solid var(--border);overflow-y:auto;flex-shrink:0;display:none;background:var(--surface)}
+#det-in{padding:16px}
+.sec{margin-bottom:16px}
+.sec-t{font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-weight:600;border-bottom:1px solid var(--border);padding-bottom:4px}
+.mg{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.mt{background:var(--bg);padding:8px;border-radius:4px}.mt .lb{font-size:9px;color:var(--text-dim);text-transform:uppercase}.mt .vl{font-size:14px;font-weight:600;margin-top:2px}
+.kr{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:11px}.kr:last-child{border:none}.kk{color:var(--text-dim)}
+.pt{display:inline-block;background:var(--accent-dim);color:var(--accent);padding:2px 8px;border-radius:3px;font-size:10px;margin:2px 2px 2px 0}
+.ri{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:11px;border-bottom:1px solid var(--border)}.ri:last-child{border:none}
+.rt{font-size:9px;min-width:56px;text-align:center;padding:2px 6px;border-radius:3px;font-weight:600}
+.rn{cursor:pointer}.rn:hover{color:var(--accent)}
+.nb{background:var(--bg);padding:10px;border-radius:4px;font-size:11px;line-height:1.7;white-space:pre-wrap}
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;z-index:100}
+.ml{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;width:440px;max-height:85vh;overflow-y:auto}
+.ml-t{font-size:14px;font-weight:700;margin-bottom:16px}
+.rw{display:grid;grid-template-columns:1fr 1fr;gap:8px}.rw3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.sl{font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin:14px 0 8px;font-weight:600}
+#gl{position:absolute;bottom:12px;left:12px;display:flex;gap:12px;flex-wrap:wrap;font-size:10px;color:var(--text-dim);background:rgba(6,10,16,.85);padding:8px 12px;border-radius:4px;border:1px solid var(--border)}
+.li{display:flex;align-items:center;gap:4px}.ld{width:8px;height:8px;border-radius:50%}
+#gctrl{position:absolute;top:12px;right:12px;display:flex;gap:4px}
+.rs{background:rgba(255,176,32,.15);color:#ffb020}
+.rc{background:rgba(59,158,255,.15);color:#3b9eff}
+.rk{background:rgba(255,77,106,.15);color:#ff4d6a}
+.rp{background:rgba(0,229,200,.15);color:#00e5c8}
+.ra{background:rgba(167,139,250,.15);color:#a78bfa}
+.rv{background:rgba(244,114,182,.15);color:#f472b6}
+@media(max-width:768px){#det{width:100%;position:fixed;right:0;top:0;bottom:0;z-index:50}.ml{width:95vw}#lg{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hdr">
+    <div class="logo"><span class="logo-i">◆</span><span class="logo-t">INVEST HUB</span><span class="logo-c" id="cc">0社</span></div>
+    <div class="nav">
+      <button class="btn-g on" onclick="switchView('graph')">グラフ</button>
+      <button class="btn-g" onclick="switchView('list')">リスト</button>
+    </div>
+    <div style="display:flex;gap:6px">
+      <button class="btn-p" onclick="openCM()">+ 企業</button>
+      <button class="btn-o" onclick="openRM()">+ 関係</button>
+      <button class="btn-g" onclick="expD()" title="JSON書出">↓書出</button>
+      <button class="btn-g" onclick="document.getElementById('imp').click()" title="JSON読込">↑読込</button>
+      <input type="file" id="imp" accept=".json" style="display:none" onchange="impD(event)">
+    </div>
+  </div>
+  <div id="main">
+    <div id="gc">
+      <svg id="gs"></svg>
+      <div id="ge"><div class="ic">◆</div><div>「+ 企業」から始めましょう</div></div>
+      <div id="gl"></div>
+      <div id="gctrl">
+        <button class="btn-g" onclick="zG(1.3)">＋</button>
+        <button class="btn-g" onclick="zG(.7)">ー</button>
+        <button class="btn-g" onclick="rG()">⟲</button>
+      </div>
+    </div>
+    <div id="lc"><input id="ls" placeholder="検索..." oninput="rL()"><div id="lg"></div></div>
+    <div id="det"><div id="det-in"></div></div>
+  </div>
+</div>
+
+<div id="cm" class="mo" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+<div class="ml">
+  <div class="ml-t" id="cmt">企業追加</div>
+  <div class="fld"><label>企業名 *</label><input id="fn"></div>
+  <div class="rw">
+    <div class="fld"><label>ティッカー</label><input id="ft" placeholder="AAPL"></div>
+    <div class="fld"><label>セクター</label><select id="fs"></select></div>
+  </div>
+  <div class="rw">
+    <div class="fld"><label>ステータス</label><select id="fst"></select></div>
+    <div class="fld"><label>株価</label><input id="fp" placeholder="150.25"></div>
+  </div>
+  <div class="sl">財務指標</div>
+  <div class="rw3">
+    <div class="fld"><label>PER</label><input id="fpe" placeholder="25.3"></div>
+    <div class="fld"><label>時価総額</label><input id="fm" placeholder="1.2兆円"></div>
+    <div class="fld"><label>売上成長率</label><input id="fg" placeholder="15%"></div>
+  </div>
+  <div class="rw3">
+    <div class="fld"><label>PBR</label><input id="fb" placeholder="3.2"></div>
+    <div class="fld"><label>ROE</label><input id="fr" placeholder="18%"></div>
+    <div class="fld"><label>配当利回り</label><input id="fd" placeholder="1.5%"></div>
+  </div>
+  <div class="sl">KPI（1行ずつ: 指標名=値）</div>
+  <div class="fld"><textarea id="fk" placeholder="MAU=1200万&#10;ARPU=$12.5&#10;解約率=2.1%"></textarea></div>
+  <div class="sl">製品・サービス（カンマ区切り）</div>
+  <div class="fld"><input id="fpd" placeholder="Azure, Office 365, Windows"></div>
+  <div class="sl">メモ</div>
+  <div class="fld"><label>取材メモ</label><textarea id="frs"></textarea></div>
+  <div class="fld"><label>市場環境</label><textarea id="fmk"></textarea></div>
+  <div class="fld"><label>その他メモ</label><textarea id="fno"></textarea></div>
+  <button class="btn-p" style="width:100%;margin-top:8px" onclick="saveC()">保存</button>
+</div>
+</div>
+
+<div id="rm" class="mo" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+<div class="ml">
+  <div class="ml-t">関係追加</div>
+  <div class="fld"><label>企業A（起点）</label><select id="rf"></select></div>
+  <div class="fld"><label>関係タイプ</label><select id="rty"></select></div>
+  <div class="fld"><label>企業B（終点）</label><select id="rto"></select></div>
+  <div class="fld"><label>メモ</label><input id="rn" placeholder="関係の詳細..."></div>
+  <div style="font-size:10px;color:var(--text-dim);margin-bottom:12px;line-height:1.6">
+    例: 企業A「TSMC」→ <b style="color:var(--amber)">仕入先</b> → 企業B「ASML」<br>＝ TSMCの仕入先はASML<br><br>
+    例: 企業A「NVIDIA」→ <b style="color:var(--red)">競合</b> → 企業B「AMD」<br>＝ NVIDIAの競合はAMD
+  </div>
+  <button class="btn-p" style="width:100%" onclick="saveR()">追加</button>
+</div>
+</div>
+
+<script>
+const SEC=["テクノロジー","金融","ヘルスケア","エネルギー","消費財","産業","通信","不動産","素材","公益","その他"];
+const STS=["監視中","買い検討","保有中","売却済"];
+const RTS=["仕入先","顧客","競合","提携","親子","投資先"];
+const RCL={"仕入先":"#ffb020","顧客":"#3b9eff","競合":"#ff4d6a","提携":"#00e5c8","親子":"#a78bfa","投資先":"#f472b6"};
+const RCS={"仕入先":"rs","顧客":"rc","競合":"rk","提携":"rp","親子":"ra","投資先":"rv"};
+const SCL={"監視中":"#3b9eff","買い検討":"#ffb020","保有中":"#00e5c8","売却済":"#ff4d6a"};
+let C=[],R=[],sel=null,eid=null,cv='graph',sim=null,zObj=null;
+
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+function esc(s){if(!s)return'';const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function load(){try{const d=JSON.parse(localStorage.getItem('ih-data'));if(d){C=d.c||[];R=d.r||[]}}catch(e){}}
+function save(){localStorage.setItem('ih-data',JSON.stringify({c:C,r:R}));document.getElementById('cc').textContent=C.length+'社'}
+
+function expD(){const b=new Blob([JSON.stringify({companies:C,relations:R},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='invest-hub-'+new Date().toISOString().slice(0,10)+'.json';a.click()}
+function impD(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);C=d.companies||d.c||[];R=d.relations||d.r||[];save();ref()}catch(err){alert('読み込み失敗')}};r.readAsText(f);e.target.value=''}
+
+function switchView(v){cv=v;document.querySelectorAll('.nav button').forEach((b,i)=>b.classList.toggle('on',(i===0&&v==='graph')||(i===1&&v==='list')));document.getElementById('gc').style.display=v==='graph'?'block':'none';document.getElementById('lc').style.display=v==='list'?'block':'none';if(v==='list')rL();if(v==='graph')rGr()}
+function ref(){save();if(cv==='graph')rGr();else rL();if(sel)rDet(sel)}
+
+// List
+function rL(){
+  const q=document.getElementById('ls').value.toLowerCase();
+  const fl=C.filter(c=>!q||c.name.toLowerCase().includes(q)||(c.ticker||'').toLowerCase().includes(q));
+  document.getElementById('lg').innerHTML=fl.map(c=>`
+    <div class="cd ${sel===c.id?'sel':''}" onclick="selC('${c.id}')">
+      <div class="cd-h"><span class="cd-n">${esc(c.name)}</span><span class="bdg" style="background:${SCL[c.status]}22;color:${SCL[c.status]}">${c.status}</span></div>
+      <div class="cd-m">${c.ticker?'<span>'+esc(c.ticker)+'</span>':''}<span>${c.sector}</span>${c.per?'<span>PER '+esc(c.per)+'</span>':''}${c.mcap?'<span>'+esc(c.mcap)+'</span>':''}${c.price?'<span>'+esc(c.price)+'</span>':''}</div>
+    </div>`).join('')}
+
+// Detail
+function selC(id){sel=id;rDet(id);if(cv==='list')rL();if(cv==='graph')hlN(id)}
+function clDet(){sel=null;document.getElementById('det').style.display='none';if(cv==='list')rL();if(cv==='graph')rGr()}
+
+function mB(l,v){return v?`<div class="mt"><div class="lb">${l}</div><div class="vl">${esc(v)}</div></div>`:''}
+
+function rDet(id){
+  const c=C.find(x=>x.id===id);if(!c){document.getElementById('det').style.display='none';return}
+  document.getElementById('det').style.display='block';
+  const rels=R.filter(r=>r.from===id||r.to===id);
+  const kh=(c.kpis||[]).map(k=>`<div class="kr"><span class="kk">${esc(k.key)}</span><span>${esc(k.value)}</span></div>`).join('');
+  const ph=(c.products||[]).map(p=>`<span class="pt">${esc(p)}</span>`).join('');
+  const rh=rels.map(r=>{
+    const oid=r.from===id?r.to:r.from;const o=C.find(x=>x.id===oid);if(!o)return'';
+    const dir=r.from===id?'→':'←';
+    return`<div class="ri"><span class="rt ${RCS[r.type]}">${r.type}</span><span>${dir}</span><span class="rn" onclick="selC('${o.id}')">${esc(o.name)}</span>${r.notes?'<span style="color:var(--text-muted);font-size:9px;margin-left:4px">'+esc(r.notes)+'</span>':''}<button class="btn-g" style="margin-left:auto;font-size:9px;color:var(--text-muted)" onclick="delR('${r.id}')">✕</button></div>`}).join('');
+  document.getElementById('det-in').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px">
+      <div><div style="font-weight:700;font-size:16px">${esc(c.name)}</div>${c.ticker?'<div style="color:var(--text-dim);font-size:11px">'+esc(c.ticker)+'</div>':''}</div>
+      <button class="btn-g" onclick="clDet()" style="font-size:16px">✕</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+      <span class="bdg" style="background:var(--accent-dim);color:var(--accent)">${c.sector}</span>
+      <span class="bdg" style="background:${SCL[c.status]}22;color:${SCL[c.status]}">${c.status}</span>
+    </div>
+    <div class="sec"><div class="sec-t">財務指標</div><div class="mg">${mB('株価',c.price)}${mB('PER',c.per)}${mB('時価総額',c.mcap)}${mB('売上成長率',c.growth)}${mB('PBR',c.pbr)}${mB('ROE',c.roe)}${mB('配当利回り',c.div)}</div></div>
+    ${(c.kpis||[]).length?`<div class="sec"><div class="sec-t">KPI</div>${kh}</div>`:''}
+    ${(c.products||[]).length?`<div class="sec"><div class="sec-t">製品・サービス</div><div>${ph}</div></div>`:''}
+    ${rels.length?`<div class="sec"><div class="sec-t">関係 (${rels.length})</div>${rh}</div>`:''}
+    ${c.research?`<div class="sec"><div class="sec-t">取材メモ</div><div class="nb">${esc(c.research)}</div></div>`:''}
+    ${c.market?`<div class="sec"><div class="sec-t">市場環境</div><div class="nb">${esc(c.market)}</div></div>`:''}
+    ${c.notes?`<div class="sec"><div class="sec-t">その他メモ</div><div class="nb">${esc(c.notes)}</div></div>`:''}
+    <div style="display:flex;gap:8px;margin-top:20px">
+      <button class="btn-o" style="flex:1" onclick="openEC('${c.id}')">編集</button>
+      <button class="btn-d" style="flex:1" onclick="if(confirm('削除しますか？'))delC('${c.id}')">削除</button>
+    </div>`}
+
+// Company CRUD
+function openCM(){eid=null;document.getElementById('cmt').textContent='企業追加';['fn','ft','fp','fpe','fm','fg','fb','fr','fd','fk','fpd','frs','fmk','fno'].forEach(i=>{const e=document.getElementById(i);if(e.tagName==='SELECT')e.selectedIndex=0;else e.value=''});document.getElementById('cm').style.display='flex'}
+function openEC(id){const c=C.find(x=>x.id===id);if(!c)return;eid=id;document.getElementById('cmt').textContent='企業編集';document.getElementById('fn').value=c.name;document.getElementById('ft').value=c.ticker||'';document.getElementById('fs').value=c.sector;document.getElementById('fst').value=c.status;document.getElementById('fp').value=c.price||'';document.getElementById('fpe').value=c.per||'';document.getElementById('fm').value=c.mcap||'';document.getElementById('fg').value=c.growth||'';document.getElementById('fb').value=c.pbr||'';document.getElementById('fr').value=c.roe||'';document.getElementById('fd').value=c.div||'';document.getElementById('fk').value=(c.kpis||[]).map(k=>k.key+'='+k.value).join('\n');document.getElementById('fpd').value=(c.products||[]).join(', ');document.getElementById('frs').value=c.research||'';document.getElementById('fmk').value=c.market||'';document.getElementById('fno').value=c.notes||'';document.getElementById('cm').style.display='flex'}
+
+function saveC(){
+  const n=document.getElementById('fn').value.trim();if(!n)return alert('企業名は必須です');
+  const kt=document.getElementById('fk').value.trim();
+  const kpis=kt?kt.split('\n').map(l=>{const p=l.split('=');return{key:p[0]?.trim(),value:p.slice(1).join('=').trim()}}).filter(k=>k.key):[];
+  const pt=document.getElementById('fpd').value.trim();
+  const products=pt?pt.split(/[,、]/).map(s=>s.trim()).filter(Boolean):[];
+  const d={name:n,ticker:document.getElementById('ft').value.trim(),sector:document.getElementById('fs').value,status:document.getElementById('fst').value,price:document.getElementById('fp').value.trim(),per:document.getElementById('fpe').value.trim(),mcap:document.getElementById('fm').value.trim(),growth:document.getElementById('fg').value.trim(),pbr:document.getElementById('fb').value.trim(),roe:document.getElementById('fr').value.trim(),div:document.getElementById('fd').value.trim(),kpis,products,research:document.getElementById('frs').value.trim(),market:document.getElementById('fmk').value.trim(),notes:document.getElementById('fno').value.trim()};
+  if(eid){C=C.map(c=>c.id===eid?{...c,...d}:c)}else{C.push({id:uid(),...d})}
+  document.getElementById('cm').style.display='none';ref();if(eid)rDet(eid);eid=null}
+
+function delC(id){C=C.filter(c=>c.id!==id);R=R.filter(r=>r.from!==id&&r.to!==id);clDet();ref()}
+
+// Relation CRUD
+function openRM(){
+  const s=id=>{const e=document.getElementById(id);e.innerHTML='<option value="">選択...</option>'+C.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')};
+  s('rf');s('rto');document.getElementById('rn').value='';document.getElementById('rm').style.display='flex'}
+
+function saveR(){
+  const f=document.getElementById('rf').value,t=document.getElementById('rto').value,ty=document.getElementById('rty').value,n=document.getElementById('rn').value.trim();
+  if(!f||!t||f===t)return alert('異なる2企業を選択');
+  if(R.find(r=>r.from===f&&r.to===t&&r.type===ty))return alert('同じ関係が存在');
+  R.push({id:uid(),from:f,to:t,type:ty,notes:n});document.getElementById('rm').style.display='none';ref()}
+
+function delR(id){R=R.filter(r=>r.id!==id);ref()}
+
+// Graph
+function rGr(){
+  const svg=d3.select('#gs');svg.selectAll('*').remove();
+  document.getElementById('ge').style.display=C.length?'none':'flex';
+  if(!C.length)return;
+  const ct=document.getElementById('gc'),W=ct.clientWidth,H=ct.clientHeight;
+  const g=svg.append('g');
+  zObj=d3.zoom().scaleExtent([.2,5]).on('zoom',e=>g.attr('transform',e.transform));
+  svg.call(zObj);
+
+  const defs=svg.append('defs');
+  RTS.forEach(t=>{defs.append('marker').attr('id','a-'+t).attr('viewBox','0 0 10 6').attr('refX',30).attr('refY',3).attr('markerWidth',8).attr('markerHeight',6).attr('orient','auto').append('path').attr('d','M0,0 L10,3 L0,6').attr('fill',RCL[t])});
+
+  const nodes=C.map(c=>({id:c.id,name:c.name,sector:c.sector,status:c.status}));
+  const links=R.map(r=>({source:r.from,target:r.to,type:r.type})).filter(l=>nodes.find(n=>n.id===l.source)&&nodes.find(n=>n.id===l.target));
+
+  sim=d3.forceSimulation(nodes).force('link',d3.forceLink(links).id(d=>d.id).distance(150)).force('charge',d3.forceManyBody().strength(-500)).force('center',d3.forceCenter(W/2,H/2)).force('collision',d3.forceCollide(50));
+
+  const link=g.selectAll('.lk').data(links).join('line').attr('stroke',d=>RCL[d.type]||'#444').attr('stroke-width',1.8).attr('stroke-opacity',.4).attr('marker-end',d=>'url(#a-'+d.type+')');
+  const ll=g.selectAll('.ll').data(links).join('text').text(d=>d.type).attr('fill',d=>RCL[d.type]).attr('font-size',9).attr('font-family','var(--font)').attr('text-anchor','middle').attr('dy',-8).attr('opacity',.75);
+
+  const node=g.selectAll('.nd').data(nodes).join('g').attr('cursor','pointer')
+    .call(d3.drag().on('start',(e,d)=>{if(!e.active)sim.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y}).on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y}).on('end',(e,d)=>{if(!e.active)sim.alphaTarget(0);d.fx=null;d.fy=null}))
+    .on('click',(e,d)=>selC(d.id));
+
+  node.append('circle').attr('r',24).attr('fill',d=>d.id===sel?'rgba(0,229,200,.12)':'var(--surface)').attr('stroke',d=>d.id===sel?'var(--accent)':'var(--border)').attr('stroke-width',d=>d.id===sel?2.5:1.2);
+  node.append('circle').attr('r',3.5).attr('cx',17).attr('cy',-17).attr('fill',d=>SCL[d.status]||'#555');
+  node.append('text').text(d=>d.name.length>6?d.name.slice(0,5)+'…':d.name).attr('fill','var(--text)').attr('font-size',10).attr('font-family','var(--font)').attr('text-anchor','middle').attr('dy',4);
+  node.append('title').text(d=>d.name);
+
+  sim.on('tick',()=>{link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);ll.attr('x',d=>(d.source.x+d.target.x)/2).attr('y',d=>(d.source.y+d.target.y)/2);node.attr('transform',d=>`translate(${d.x},${d.y})`)});
+  document.getElementById('gl').innerHTML=RTS.map(t=>`<div class="li"><div class="ld" style="background:${RCL[t]}"></div>${t}</div>`).join('')}
+
+function hlN(id){d3.selectAll('#gs .nd circle:first-child').attr('fill',d=>d.id===id?'rgba(0,229,200,.12)':'var(--surface)').attr('stroke',d=>d.id===id?'var(--accent)':'var(--border)').attr('stroke-width',d=>d.id===id?2.5:1.2)}
+function zG(f){d3.select('#gs').transition().duration(300).call(zObj.scaleBy,f)}
+function rG(){d3.select('#gs').transition().duration(500).call(zObj.transform,d3.zoomIdentity)}
+
+// Init
+(function(){
+  document.getElementById('fs').innerHTML=SEC.map(s=>`<option>${s}</option>`).join('');
+  document.getElementById('fst').innerHTML=STS.map(s=>`<option>${s}</option>`).join('');
+  document.getElementById('rty').innerHTML=RTS.map(s=>`<option>${s}</option>`).join('');
+  load();save();rGr();
+  window.addEventListener('resize',()=>{if(cv==='graph')rGr()});
+})();
+</script>
+</body>
+</html>
